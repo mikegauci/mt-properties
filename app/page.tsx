@@ -4,21 +4,25 @@ import { PriceIndexChart } from "@/components/price-index-chart";
 import { SetupBanner } from "@/components/setup-banner";
 import { YearCompare } from "@/components/year-compare";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { askingStats, getActiveListings, getLocalityDeedTable, getNationalTransactions, getPriceIndex } from "@/lib/data";
+import { askingStats } from "@/lib/data";
+import {
+  getCachedActiveListings,
+  getCachedLocalityDeedTable,
+  getCachedNationalTransactions,
+  getCachedPriceIndex,
+} from "@/lib/cached-data";
 import { eur, eurDelta, pct } from "@/lib/format";
 import { buildAnnualIndex, buildDeclaredByYear } from "@/lib/year-compare";
 import { supabaseConfigured } from "@/lib/supabase/server";
-
-export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const configured = supabaseConfigured();
   const [index, national, localityDeeds, listings] = configured
     ? await Promise.all([
-        getPriceIndex(),
-        getNationalTransactions(),
-        getLocalityDeedTable(),
-        getActiveListings(),
+        getCachedPriceIndex(),
+        getCachedNationalTransactions(),
+        getCachedLocalityDeedTable(),
+        getCachedActiveListings(),
       ])
     : [[], [], [], []];
 

@@ -3,17 +3,17 @@ import { sourceTheme } from "@/components/listing-theme";
 import { ListingsTable, type ListingPreview } from "@/components/listings-table";
 import { SetupBanner } from "@/components/setup-banner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { askingStats, getActiveListings, getListingCounts, getLocalities } from "@/lib/data";
+import { askingStats, listingCountsFromListings } from "@/lib/data";
+import { getCachedActiveListings, getCachedLocalities } from "@/lib/cached-data";
 import { eur } from "@/lib/format";
 import { supabaseConfigured } from "@/lib/supabase/server";
 
-export const dynamic = "force-dynamic";
-
 export default async function ListingsPage() {
   const configured = supabaseConfigured();
-  const [listings, localities, counts] = configured
-    ? await Promise.all([getActiveListings(), getLocalities(), getListingCounts()])
-    : [[], [], []];
+  const [listings, localities] = configured
+    ? await Promise.all([getCachedActiveListings(), getCachedLocalities()])
+    : [[], []];
+  const counts = listingCountsFromListings(listings);
 
   const localityById = new Map(localities.map((row) => [row.id, row]));
   const previews: ListingPreview[] = listings.map((listing) => {

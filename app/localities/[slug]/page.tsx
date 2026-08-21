@@ -13,16 +13,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { askingStats } from "@/lib/data";
 import {
-  askingStats,
-  getActiveListings,
-  getLocality,
-  getLocalityTransactions,
-  getPeriodSnapshots,
-} from "@/lib/data";
+  getCachedActiveListings,
+  getCachedLocality,
+  getCachedLocalityTransactions,
+  getCachedPeriodSnapshots,
+} from "@/lib/cached-data";
 import { compactNumber, eur, typeLabel } from "@/lib/format";
-
-export const dynamic = "force-dynamic";
 
 export default async function LocalityPage({
   params,
@@ -33,19 +31,15 @@ export default async function LocalityPage({
 }) {
   const { slug } = await params;
   const { days: daysParam } = await searchParams;
-  const locality = await getLocality(slug);
+  const locality = await getCachedLocality(slug);
   if (!locality) notFound();
 
   const days = [30, 90, 180].includes(Number(daysParam)) ? Number(daysParam) : 90;
-  const now = Date.now();
-  const currentFrom = new Date(now - days * 86400000).toISOString();
-  const previousFrom = new Date(now - days * 2 * 86400000).toISOString();
-  const previousTo = currentFrom;
 
   const [transactions, listings, previousSnaps] = await Promise.all([
-    getLocalityTransactions(locality.id),
-    getActiveListings({ localityId: locality.id }),
-    getPeriodSnapshots(locality.id, previousFrom, previousTo),
+    getCachedLocalityTransactions(locality.id),
+    getCachedActiveListings({ localityId: locality.id }),
+    getCachedPeriodSnapshots(locality.id, days),
   ]);
 
   const current = askingStats(listings);
@@ -69,8 +63,8 @@ export default async function LocalityPage({
       has_garage: null,
       has_pool: null,
       has_lift: null,
-      first_seen: previousFrom,
-      last_seen: previousTo,
+      first_seen: "",
+      last_seen: "",
       is_active: false,
       fingerprint: null,
     })),

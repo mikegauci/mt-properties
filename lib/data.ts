@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { median, percentile } from "@/lib/format";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import {
@@ -49,7 +50,7 @@ function uniqueById<T extends { id: string }>(rows: T[]): T[] {
   });
 }
 
-export async function getLocalities(): Promise<Locality[]> {
+async function fetchLocalities(): Promise<Locality[]> {
   const supabase = supabaseAdmin();
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -59,6 +60,8 @@ export async function getLocalities(): Promise<Locality[]> {
   if (error) throw error;
   return (data ?? []) as Locality[];
 }
+
+export const getLocalities = cache(fetchLocalities);
 
 export async function getLocality(slug: string): Promise<Locality | null> {
   const supabase = supabaseAdmin();
@@ -217,17 +220,33 @@ export async function getLatestScrapeRuns(): Promise<ScrapeRun[]> {
   return (data ?? []) as ScrapeRun[];
 }
 
+const LISTING_SOURCES = ["remax", "propertymarket", "zanzi"] as const;
+
 export async function getListingCounts() {
   const supabase = supabaseAdmin();
   if (!supabase) return [] as { source: string; count: number }[];
-  const rows = await paginate<{ source: string }>((from, to) =>
-    supabase.from("listings").select("source").eq("is_active", true).order("id").range(from, to),
+  return Promise.all(
+    LISTING_SOURCES.map(async (source) => {
+      const { count, error } = await supabase
+        .from("listings")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true)
+        .eq("source", source);
+      if (error) throw error;
+      return { source, count: count ?? 0 };
+    }),
   );
+}
+
+export function listingCountsFromListings(listings: ListingRow[]) {
   const counts = new Map<string, number>();
-  for (const row of rows) {
-    counts.set(row.source, (counts.get(row.source) ?? 0) + 1);
+  for (const listing of listings) {
+    counts.set(listing.source, (counts.get(listing.source) ?? 0) + 1);
   }
-  return [...counts.entries()].map(([source, count]) => ({ source, count }));
+  return LISTING_SOURCES.map((source) => ({
+    source,
+    count: counts.get(source) ?? 0,
+  }));
 }
 
 export async function getComps(input: {
