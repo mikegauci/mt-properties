@@ -395,6 +395,21 @@ export function ListingsTable({
           {` · ${sortLabel(sortKey, sortDir)}`}
         </p>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="text-muted-foreground flex items-center gap-2 md:hidden">
+            Sort
+            <select
+              className="border-input h-8 max-w-[11rem] min-w-0 rounded-lg border bg-transparent px-2 text-sm"
+              value={sortSelectValue}
+              onChange={(event) => applySortPreset(event.target.value)}
+              aria-label="Sort listings"
+            >
+              {SORT_PRESETS.map((preset) => (
+                <option key={preset.value} value={preset.value}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="flex items-center gap-1 md:hidden" role="group" aria-label="View layout">
             <Button
               type="button"
