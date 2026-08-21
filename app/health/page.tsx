@@ -9,15 +9,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getLatestScrapeRuns, getListingCounts } from "@/lib/data";
+import { getCachedLatestScrapeRuns, getCachedListingCounts } from "@/lib/cached-data";
 import { supabaseConfigured } from "@/lib/supabase/server";
-
-export const dynamic = "force-dynamic";
 
 export default async function HealthPage() {
   const configured = supabaseConfigured();
   const [runs, counts] = configured
-    ? await Promise.all([getLatestScrapeRuns(), getListingCounts()])
+    ? await Promise.all([getCachedLatestScrapeRuns(), getCachedListingCounts()])
     : [[], []];
 
   return (

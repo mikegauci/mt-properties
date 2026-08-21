@@ -3,18 +3,17 @@ import { sourceTheme } from "@/components/listing-theme";
 import { ListingsTable, type ListingPreview } from "@/components/listings-table";
 import { SetupBanner } from "@/components/setup-banner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { askingStats, getActiveListings, getListingCounts, getLocalities } from "@/lib/data";
+import { askingStats, listingCountsFromListings } from "@/lib/data";
+import { getCachedActiveListings, getCachedLocalities } from "@/lib/cached-data";
 import { eur } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { supabaseConfigured } from "@/lib/supabase/server";
-
-export const dynamic = "force-dynamic";
 
 export default async function ListingsPage() {
   const configured = supabaseConfigured();
-  const [listings, localities, counts] = configured
-    ? await Promise.all([getActiveListings(), getLocalities(), getListingCounts()])
-    : [[], [], []];
+  const [listings, localities] = configured
+    ? await Promise.all([getCachedActiveListings(), getCachedLocalities()])
+    : [[], []];
+  const counts = listingCountsFromListings(listings);
 
   const localityById = new Map(localities.map((row) => [row.id, row]));
   const previews: ListingPreview[] = listings.map((listing) => {
@@ -61,26 +60,12 @@ export default async function ListingsPage() {
         />
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {["remax", "propertymarket", "zanzi"].map((source) => {
-          const count = counts.find((row) => row.source === source)?.count ?? 0;
-          const theme = sourceTheme(source);
-          return (
-            <Card key={source} className={theme.card}>
-              <CardHeader className="pb-2">
-                <CardDescription className={cn("font-medium", theme.value)}>{theme.label}</CardDescription>
-                <CardTitle className={cn("text-2xl tabular-nums", theme.value)}>{count}</CardTitle>
-              </CardHeader>
-            </Card>
-          );
-        })}
-      </div>
-
       <Card className="gap-0 overflow-hidden py-0 ring-sky-100/80">
         <CardHeader className="border-b border-sky-100/80 bg-gradient-to-r from-sky-50/80 to-amber-50/40 py-4">
           <CardTitle className="text-sky-950">Property Listings</CardTitle>
           <CardDescription>
-            Filter by source, locality, or type. Sort any column — 50 per page by default.
+            On mobile, search by locality, region, type, or price. On desktop, use the filters below. Sort any
+            column — 50 per page by default.
           </CardDescription>
         </CardHeader>
         <CardContent className="py-4">
