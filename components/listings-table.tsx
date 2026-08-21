@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown, ImageIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ImageIcon, LayoutGrid, LayoutList } from "lucide-react";
 import { useMemo, useState } from "react";
 import { FilterCombobox } from "@/components/filter-combobox";
 import { sourceTheme, typeBadgeClass } from "@/components/listing-theme";
@@ -38,6 +38,7 @@ const DEFAULT_PAGE_SIZE = 50;
 
 type SortKey = "title" | "locality" | "type" | "beds" | "price" | "source" | "last_seen";
 type SortDir = "asc" | "desc";
+type MobileView = "grid" | "list";
 
 const TEXT_SORT: SortKey[] = ["title", "locality", "type", "source"];
 
@@ -65,6 +66,7 @@ export function ListingsTable({
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(DEFAULT_PAGE_SIZE);
+  const [mobileView, setMobileView] = useState<MobileView>("grid");
 
   const sources = useMemo(
     () => [...new Set(uniqueListings.map((row) => row.source))].sort(),
@@ -293,31 +295,72 @@ export function ListingsTable({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground min-w-0 flex-1">
           Showing {from}–{to} of {sorted.length} listings
           {sorted.length !== uniqueListings.length ? ` (filtered from ${uniqueListings.length})` : null}
           {` · ${sortLabel(sortKey, sortDir)}`}
         </p>
-        <label className="text-muted-foreground flex items-center gap-2">
-          Per page
-          <select
-            className="border-input h-8 rounded-lg border bg-transparent px-2.5 text-sm"
-            value={pageSize}
-            onChange={(event) => {
-              setPageSize(Number(event.target.value) as (typeof PAGE_SIZES)[number]);
-              setPage(1);
-            }}
-          >
-            {PAGE_SIZES.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 md:hidden" role="group" aria-label="View layout">
+            <Button
+              type="button"
+              variant={mobileView === "grid" ? "default" : "outline"}
+              size="icon-sm"
+              aria-pressed={mobileView === "grid"}
+              aria-label="Grid view"
+              onClick={() => setMobileView("grid")}
+            >
+              <LayoutGrid className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant={mobileView === "list" ? "default" : "outline"}
+              size="icon-sm"
+              aria-pressed={mobileView === "list"}
+              aria-label="List view"
+              onClick={() => setMobileView("list")}
+            >
+              <LayoutList className="size-4" />
+            </Button>
+          </div>
+          <label className="text-muted-foreground flex items-center gap-2">
+            Per page
+            <select
+              className="border-input h-8 rounded-lg border bg-transparent px-2.5 text-sm"
+              value={pageSize}
+              onChange={(event) => {
+                setPageSize(Number(event.target.value) as (typeof PAGE_SIZES)[number]);
+                setPage(1);
+              }}
+            >
+              {PAGE_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
-      <Table>
+      <div className="md:hidden">
+        {mobileView === "grid" ? (
+          <div className="grid grid-cols-2 gap-2.5">
+            {pageRows.map((listing) => (
+              <ListingGridCard key={listing.id} listing={listing} />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {pageRows.map((listing) => (
+              <ListingListCard key={listing.id} listing={listing} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="hidden md:block">
+        <Table>
         <TableHeader>
           <TableRow className="bg-sky-50/70 hover:bg-sky-50/70">
             <SortHead label="Listing" column="title" sortKey={sortKey} sortDir={sortDir} onSort={applySort} />
@@ -403,6 +446,7 @@ export function ListingsTable({
           })}
         </TableBody>
       </Table>
+      </div>
 
       {!sorted.length ? (
         <p className="text-muted-foreground text-sm">No listings match these filters.</p>
@@ -523,28 +567,157 @@ function seenLabel(value: string) {
   return date.toLocaleDateString("en-MT", { day: "numeric", month: "short" });
 }
 
-function ListingThumb({ href, url }: { href: string; url: string | null }) {
-  const [failed, setFailed] = useState(false);
-  const thumb =
-    !url || failed ? (
-      <div className="bg-sky-50 text-muted-foreground flex size-14 shrink-0 items-center justify-center rounded-md">
-        <ImageIcon className="size-4" />
-      </div>
-    ) : (
-      <img
-        alt=""
-        className="bg-sky-50 size-14 shrink-0 rounded-md object-cover"
-        height={56}
-        loading="lazy"
-        onError={() => setFailed(true)}
-        referrerPolicy="no-referrer"
-        src={url}
-        width={56}
-      />
-    );
+function ListingGridCard({ listing }: { listing: ListingPreview }) {
+  const theme = sourceTheme(listing.source);
+  const title = listing.title?.trim() || listing.street || "View listing";
+
   return (
-    <a className="shrink-0" href={href} rel="noreferrer" target="_blank">
-      {thumb}
+    <article className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-sky-100/80 bg-white shadow-sm">
+      <ListingImage href={listing.url} url={listing.image_url} variant="grid" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-2">
+        <a
+          className="line-clamp-2 text-xs leading-snug font-medium break-words text-sky-950 hover:text-sky-700 hover:underline"
+          href={listing.url}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {title}
+        </a>
+        <p className="text-sm font-semibold break-words text-emerald-800">{eur(listing.price)}</p>
+        <div className="min-w-0 space-y-0.5 text-[11px] leading-snug">
+          {listing.localitySlug ? (
+            <Link className="block break-words text-teal-800 hover:underline" href={`/localities/${listing.localitySlug}`}>
+              {listing.localityName}
+            </Link>
+          ) : listing.localityName ? (
+            <span className="block break-words text-teal-800">{listing.localityName}</span>
+          ) : null}
+          {listing.area ? <span className="text-muted-foreground block break-words">{listing.area}</span> : null}
+        </div>
+        <div className="flex min-w-0 flex-wrap gap-1">
+          <span
+            className={cn(
+              "inline-flex max-w-full rounded-full px-1.5 py-0.5 text-[10px] leading-tight font-medium break-words capitalize",
+              typeBadgeClass(listing.property_type),
+            )}
+          >
+            {typeLabel(listing.property_type)}
+          </span>
+          {listing.beds != null ? (
+            <span className="text-muted-foreground inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] leading-tight font-medium">
+              {listing.beds} bed{listing.beds === 1 ? "" : "s"}
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-auto flex min-w-0 flex-wrap items-center justify-between gap-1 pt-0.5">
+          <span className={cn("inline-flex max-w-full rounded-full px-1.5 py-0.5 text-[10px] leading-tight font-medium break-words", theme.badge)}>
+            {theme.label}
+          </span>
+          <span className="text-muted-foreground shrink-0 text-[10px]">{seenLabel(listing.last_seen)}</span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ListingListCard({ listing }: { listing: ListingPreview }) {
+  const theme = sourceTheme(listing.source);
+  const title = listing.title?.trim() || listing.street || "View listing";
+
+  return (
+    <article className="flex min-w-0 gap-2.5 overflow-hidden rounded-lg border border-sky-100/80 bg-white p-2 shadow-sm">
+      <ListingImage href={listing.url} url={listing.image_url} variant="list" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <a
+          className="line-clamp-2 text-sm leading-snug font-medium break-words text-sky-950 hover:text-sky-700 hover:underline"
+          href={listing.url}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {title}
+        </a>
+        {listing.street && listing.title ? (
+          <span className="text-muted-foreground line-clamp-1 text-xs break-words">{listing.street}</span>
+        ) : null}
+        <p className="text-base font-semibold break-words text-emerald-800">{eur(listing.price)}</p>
+        <div className="min-w-0 text-xs leading-snug">
+          {listing.localitySlug ? (
+            <Link className="break-words text-teal-800 hover:underline" href={`/localities/${listing.localitySlug}`}>
+              {listing.localityName}
+            </Link>
+          ) : (
+            (listing.localityName ?? null)
+          )}
+          {listing.area ? <span className="text-muted-foreground block break-words">{listing.area}</span> : null}
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span
+            className={cn(
+              "inline-flex max-w-full rounded-full px-2 py-0.5 text-[11px] leading-tight font-medium break-words capitalize",
+              typeBadgeClass(listing.property_type),
+            )}
+          >
+            {typeLabel(listing.property_type)}
+          </span>
+          {listing.beds != null ? (
+            <span className="text-muted-foreground text-xs tabular-nums">{listing.beds} bed{listing.beds === 1 ? "" : "s"}</span>
+          ) : null}
+          <span className={cn("inline-flex max-w-full rounded-full px-2 py-0.5 text-[11px] leading-tight font-medium break-words", theme.badge)}>
+            {theme.label}
+          </span>
+          <span className="text-muted-foreground ml-auto text-[11px]">{seenLabel(listing.last_seen)}</span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ListingThumb({ href, url }: { href: string; url: string | null }) {
+  return <ListingImage href={href} url={url} variant="table" />;
+}
+
+function ListingImage({
+  href,
+  url,
+  variant,
+}: {
+  href: string;
+  url: string | null;
+  variant: "table" | "grid" | "list";
+}) {
+  const [failed, setFailed] = useState(false);
+  const placeholder = (
+    <div
+      className={cn(
+        "bg-sky-50 text-muted-foreground flex shrink-0 items-center justify-center",
+        variant === "grid" && "aspect-[4/3] w-full rounded-t-lg",
+        variant === "list" && "size-20 rounded-md",
+        variant === "table" && "size-14 rounded-md",
+      )}
+    >
+      <ImageIcon className={variant === "grid" ? "size-5" : "size-4"} />
+    </div>
+  );
+  const image = !url || failed ? (
+    placeholder
+  ) : (
+    <img
+      alt=""
+      className={cn(
+        "bg-sky-50 shrink-0 object-cover",
+        variant === "grid" && "aspect-[4/3] w-full rounded-t-lg",
+        variant === "list" && "size-20 rounded-md",
+        variant === "table" && "size-14 rounded-md",
+      )}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      referrerPolicy="no-referrer"
+      src={url}
+    />
+  );
+  return (
+    <a className={cn("shrink-0", variant === "grid" && "block w-full min-w-0")} href={href} rel="noreferrer" target="_blank">
+      {image}
     </a>
   );
 }
