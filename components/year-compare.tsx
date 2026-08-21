@@ -174,15 +174,17 @@ export function YearCompare({
           </p>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
               <PriceStat label={String(fromYear)} value={eur(overall.from)} />
               <PriceStat label={String(toYear)} value={eur(overall.to)} />
-              <PriceStat
-                label="Difference"
-                value={eurDelta(overall.changeEur)}
-                hint={pct(overall.changePct)}
-                className={deltaClass(overall.changeEur)}
-              />
+              <div className="col-span-2 sm:col-span-1">
+                <PriceStat
+                  label="Difference"
+                  value={eurDelta(overall.changeEur)}
+                  hint={pct(overall.changePct)}
+                  className={deltaClass(overall.changeEur)}
+                />
+              </div>
             </div>
             {overall.hint ? <p className="text-muted-foreground text-xs">{overall.hint}</p> : null}
 
@@ -252,7 +254,7 @@ function PriceStat({
   return (
     <div>
       <p className="text-muted-foreground text-xs">{label}</p>
-      <p className={cn("text-2xl font-semibold tracking-tight tabular-nums", className)}>{value}</p>
+      <p className={cn("text-xl font-semibold tracking-tight tabular-nums sm:text-2xl", className)}>{value}</p>
       {hint ? <p className={cn("text-sm", className)}>{hint}</p> : null}
     </div>
   );
