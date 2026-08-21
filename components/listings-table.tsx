@@ -36,10 +36,34 @@ export type FilterLocality = {
 const PAGE_SIZES = [25, 50, 100] as const;
 const DEFAULT_PAGE_SIZE = 50;
 
-type SortKey = "title" | "locality" | "type" | "beds" | "price" | "source" | "last_seen";
+type SortKey =
+  | "title"
+  | "locality"
+  | "type"
+  | "beds"
+  | "price"
+  | "price_per_sqm"
+  | "sqm"
+  | "source"
+  | "last_seen"
+  | "first_seen";
 type SortDir = "asc" | "desc";
 
 const TEXT_SORT: SortKey[] = ["title", "locality", "type", "source"];
+
+const SORT_PRESETS: { value: `${SortKey}:${SortDir}`; label: string }[] = [
+  { value: "last_seen:desc", label: "Most recently seen" },
+  { value: "first_seen:desc", label: "Newest listings" },
+  { value: "first_seen:asc", label: "Longest on market" },
+  { value: "price:asc", label: "Price: low to high" },
+  { value: "price:desc", label: "Price: high to low" },
+  { value: "price_per_sqm:asc", label: "€/m²: low to high" },
+  { value: "price_per_sqm:desc", label: "€/m²: high to low" },
+  { value: "sqm:asc", label: "Size: smallest first" },
+  { value: "sqm:desc", label: "Size: largest first" },
+  { value: "beds:asc", label: "Beds: fewest first" },
+  { value: "beds:desc", label: "Beds: most first" },
+];
 
 export function ListingsTable({
   listings,
@@ -212,6 +236,20 @@ export function ListingsTable({
     setPage(1);
   }
 
+  function applySortPreset(value: string) {
+    const preset = SORT_PRESETS.find((row) => row.value === value);
+    if (!preset) return;
+    const [key, dir] = preset.value.split(":") as [SortKey, SortDir];
+    setSortKey(key);
+    setSortDir(dir);
+    setPage(1);
+  }
+
+  const sortPresetValue = `${sortKey}:${sortDir}`;
+  const sortSelectValue = SORT_PRESETS.some((row) => row.value === sortPresetValue)
+    ? sortPresetValue
+    : "last_seen:desc";
+
   return (
     <div className="space-y-4">
       <div className="space-y-3 rounded-xl bg-gradient-to-br from-sky-50 via-background to-amber-50/70 p-3 ring-1 ring-sky-100/80">
@@ -284,6 +322,20 @@ export function ListingsTable({
               />
             </label>
           ) : null}
+          <label className="grid gap-1 text-xs font-medium text-sky-900/70">
+            Sort
+            <select
+              className="border-input h-8 w-[14rem] rounded-lg border bg-background px-2.5 text-sm"
+              value={sortSelectValue}
+              onChange={(event) => applySortPreset(event.target.value)}
+            >
+              {SORT_PRESETS.map((preset) => (
+                <option key={preset.value} value={preset.value}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+          </label>
           {filtersActive ? (
             <Button type="button" variant="ghost" size="sm" className="text-sky-800" onClick={clearFilters}>
               Clear filters
@@ -496,22 +548,33 @@ function sortValue(row: ListingPreview, key: SortKey): string | number | null {
       return row.beds;
     case "price":
       return row.price;
+    case "price_per_sqm":
+      return row.price != null && row.sqm != null && row.sqm > 0 ? row.price / row.sqm : null;
+    case "sqm":
+      return row.sqm;
     case "source":
       return row.source;
     case "last_seen":
       return row.last_seen;
+    case "first_seen":
+      return row.first_seen;
   }
 }
 
 function sortLabel(key: SortKey, dir: SortDir) {
+  const preset = SORT_PRESETS.find((row) => row.value === `${key}:${dir}`);
+  if (preset) return `sorted by ${preset.label.toLowerCase()}`;
   const labels: Record<SortKey, string> = {
     title: "listing",
     locality: "locality",
     type: "type",
     beds: "beds",
     price: "price",
+    price_per_sqm: "€/m²",
+    sqm: "size",
     source: "source",
     last_seen: "most recently seen",
+    first_seen: "first seen",
   };
   if (key === "last_seen" && dir === "desc") return "sorted by most recently seen";
   return `sorted by ${labels[key]}, ${dir === "asc" ? "low to high" : "high to low"}`;
