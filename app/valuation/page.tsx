@@ -1,12 +1,10 @@
 import { SetupBanner } from "@/components/setup-banner";
-import { getLocalities } from "@/lib/data";
+import { getCachedLocalities } from "@/lib/cached-data";
 import { supabaseConfigured } from "@/lib/supabase/server";
 import { ValuationForm } from "./form";
 
-export const dynamic = "force-dynamic";
-
 export default async function ValuationPage() {
-  const localities = await getLocalities();
+  const localities = await getCachedLocalities();
   return (
     <div className="space-y-6">
       <div>

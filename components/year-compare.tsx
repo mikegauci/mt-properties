@@ -14,8 +14,11 @@ import {
   type AskingListing,
 } from "@/lib/year-compare";
 
+const yearSelectClass =
+  "border-input h-8 w-[5.25rem] shrink-0 rounded-lg border bg-transparent px-2 text-sm";
+
 const selectClass =
-  "border-input h-8 max-w-[16rem] rounded-lg border bg-transparent px-2.5 text-sm";
+  "border-input h-8 min-w-0 flex-1 rounded-lg border bg-transparent px-2.5 text-sm sm:max-w-[16rem] sm:flex-none";
 
 export function YearCompare({
   indexByYear,
@@ -97,37 +100,39 @@ export function YearCompare({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex flex-wrap items-center gap-3 text-sm">
+        <div className="flex flex-col gap-3 text-sm">
+          <div className="flex items-center gap-3">
+            <label className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="text-muted-foreground shrink-0">From</span>
+              <select
+                className={yearSelectClass}
+                value={fromYear}
+                onChange={(event) => setFromYear(Number(event.target.value))}
+              >
+                {years.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="text-muted-foreground shrink-0">To</span>
+              <select
+                className={yearSelectClass}
+                value={toYear}
+                onChange={(event) => setToYear(Number(event.target.value))}
+              >
+                {years.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <label className="flex items-center gap-2">
-            <span className="text-muted-foreground">From</span>
-            <select
-              className={selectClass}
-              value={fromYear}
-              onChange={(event) => setFromYear(Number(event.target.value))}
-            >
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2">
-            <span className="text-muted-foreground">To</span>
-            <select
-              className={selectClass}
-              value={toYear}
-              onChange={(event) => setToYear(Number(event.target.value))}
-            >
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2">
-            <span className="text-muted-foreground">Locality</span>
+            <span className="text-muted-foreground shrink-0">Locality</span>
             <select
               className={selectClass}
               value={localityId}
@@ -146,7 +151,7 @@ export function YearCompare({
           </label>
           {localityId && areaOptions.length ? (
             <label className="flex items-center gap-2">
-              <span className="text-muted-foreground">Area</span>
+              <span className="text-muted-foreground shrink-0">Area</span>
               <select
                 className={selectClass}
                 value={area}
@@ -169,15 +174,17 @@ export function YearCompare({
           </p>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
               <PriceStat label={String(fromYear)} value={eur(overall.from)} />
               <PriceStat label={String(toYear)} value={eur(overall.to)} />
-              <PriceStat
-                label="Difference"
-                value={eurDelta(overall.changeEur)}
-                hint={pct(overall.changePct)}
-                className={deltaClass(overall.changeEur)}
-              />
+              <div className="col-span-2 sm:col-span-1">
+                <PriceStat
+                  label="Difference"
+                  value={eurDelta(overall.changeEur)}
+                  hint={pct(overall.changePct)}
+                  className={deltaClass(overall.changeEur)}
+                />
+              </div>
             </div>
             {overall.hint ? <p className="text-muted-foreground text-xs">{overall.hint}</p> : null}
 
@@ -189,36 +196,37 @@ export function YearCompare({
                     Same official % change for every type. The euro gap is larger on more expensive homes.
                   </p>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <table className="w-full table-fixed text-xs sm:text-sm">
                     <thead>
                       <tr className="border-b text-left">
-                        <th className="text-muted-foreground pb-2 pr-4 font-medium">Type</th>
-                        <th className="text-muted-foreground pb-2 pr-4 font-medium">{fromYear}</th>
-                        <th className="text-muted-foreground pb-2 pr-4 font-medium">{toYear}</th>
-                        <th className="text-muted-foreground pb-2 font-medium text-right">Difference</th>
+                        <th className="text-muted-foreground w-[30%] pb-2 pr-2 font-medium sm:pr-4">Type</th>
+                        <th className="text-muted-foreground w-[22%] pb-2 pr-1 font-medium tabular-nums sm:pr-4">{fromYear}</th>
+                        <th className="text-muted-foreground w-[22%] pb-2 pr-1 font-medium tabular-nums sm:pr-4">{toYear}</th>
+                        <th className="text-muted-foreground w-[26%] pb-2 text-right font-medium">
+                          <span className="sm:hidden">Diff</span>
+                          <span className="hidden sm:inline">Difference</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {types.map((row) => (
                         <tr key={row.key} className="border-b last:border-0">
-                          <td className="py-3 pr-4">
-                            <div className="capitalize">{row.label}</div>
+                          <td className="py-2 pr-2 sm:py-3 sm:pr-4">
+                            <div className="truncate capitalize">{row.label}</div>
                             {row.sample != null ? (
-                              <div className="text-muted-foreground text-xs">{row.sample} listings</div>
+                              <div className="text-muted-foreground text-[10px] sm:text-xs">{row.sample} listings</div>
                             ) : null}
                           </td>
-                          <td className="py-3 pr-4 font-medium">{eur(row.from)}</td>
-                          <td className="py-3 pr-4 font-medium">{eur(row.to)}</td>
-                      <td className={cn("py-3 text-right font-medium", deltaClass(row.changeEur))}>
-                        <div className="text-lg font-semibold tabular-nums">{eurDelta(row.changeEur)}</div>
-                        <div className="text-xs opacity-80">{pct(row.changePct)}</div>
-                      </td>
+                          <td className="py-2 pr-1 font-medium tabular-nums sm:py-3 sm:pr-4">{eur(row.from)}</td>
+                          <td className="py-2 pr-1 font-medium tabular-nums sm:py-3 sm:pr-4">{eur(row.to)}</td>
+                          <td className={cn("py-2 text-right font-medium sm:py-3", deltaClass(row.changeEur))}>
+                            <div className="text-xs font-semibold tabular-nums sm:text-base">{eurDelta(row.changeEur)}</div>
+                            <div className="text-[10px] opacity-80 sm:text-xs">{pct(row.changePct)}</div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                </div>
               </div>
             ) : localityId ? (
               <p className="text-muted-foreground text-sm">
@@ -246,7 +254,7 @@ function PriceStat({
   return (
     <div>
       <p className="text-muted-foreground text-xs">{label}</p>
-      <p className={cn("text-2xl font-semibold tracking-tight tabular-nums", className)}>{value}</p>
+      <p className={cn("text-xl font-semibold tracking-tight tabular-nums sm:text-2xl", className)}>{value}</p>
       {hint ? <p className={cn("text-sm", className)}>{hint}</p> : null}
     </div>
   );
