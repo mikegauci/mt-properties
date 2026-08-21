@@ -1,0 +1,3 @@
+-- Project id filled by `supabase init` / `supabase link`.
+-- Migrations in supabase/migrations are applied with `supabase db push`
+-- or pasted into the SQL editor of a hosted project.

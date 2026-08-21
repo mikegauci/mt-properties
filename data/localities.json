@@ -1,0 +1,993 @@
+[
+  {
+    "slug": "valletta",
+    "name_en": "Valletta",
+    "name_mt": "Valletta",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Valletta"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "birgu",
+    "name_en": "Birgu (Vittoriosa)",
+    "name_mt": "Il-Birgu",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Birgu",
+      "Vittoriosa",
+      "Il-Birgu"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "isla",
+    "name_en": "Senglea (Isla)",
+    "name_mt": "L-Isla",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Senglea",
+      "Isla",
+      "L-Isla"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "bormla",
+    "name_en": "Bormla (Cospicua)",
+    "name_mt": "Bormla",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Bormla",
+      "Cospicua"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "fgura",
+    "name_en": "Fgura",
+    "name_mt": "Il-Fgura",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Fgura",
+      "Il-Fgura"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "floriana",
+    "name_en": "Floriana",
+    "name_mt": "Floriana",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Floriana"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "luqa",
+    "name_en": "Luqa",
+    "name_mt": "Ħal Luqa",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Luqa",
+      "Hal Luqa",
+      "Ħal Luqa"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "zabbar",
+    "name_en": "Zabbar",
+    "name_mt": "Ħaż-Żabbar",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Zabbar",
+      "Haz-Zabbar",
+      "Ħaż-Żabbar"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "kalkara",
+    "name_en": "Kalkara",
+    "name_mt": "Il-Kalkara",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Kalkara",
+      "Il-Kalkara"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "marsa",
+    "name_en": "Marsa",
+    "name_mt": "Il-Marsa",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Marsa",
+      "Il-Marsa"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "paola",
+    "name_en": "Paola",
+    "name_mt": "Raħal Ġdid",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Paola",
+      "Rahal Gdid",
+      "Raħal Ġdid"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "santa-lucija",
+    "name_en": "Santa Lucija",
+    "name_mt": "Santa Luċija",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Santa Lucija",
+      "Santa Lucia",
+      "Santa Luċija"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "tarxien",
+    "name_en": "Tarxien",
+    "name_mt": "Ħal Tarxien",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Tarxien",
+      "Hal Tarxien",
+      "Ħal Tarxien"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "xghajra",
+    "name_en": "Xghajra",
+    "name_mt": "Ix-Xgħajra",
+    "district": "Southern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Xghajra",
+      "Ix-Xghajra",
+      "Ix-Xgħajra"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "birkirkara",
+    "name_en": "Birkirkara",
+    "name_mt": "Birkirkara",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Birkirkara",
+      "B'Kara",
+      "Fleur-de-Lys",
+      "Fleur de Lys",
+      "Mriehel",
+      "Mriewhel"
+    ],
+    "areas": [
+      "Fleur-de-Lys",
+      "Mriehel"
+    ]
+  },
+  {
+    "slug": "gzira",
+    "name_en": "Gzira",
+    "name_mt": "Il-Gżira",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Gzira",
+      "Il-Gzira",
+      "Il-Gżira",
+      "Manoel Island"
+    ],
+    "areas": [
+      "Manoel Island"
+    ]
+  },
+  {
+    "slug": "qormi",
+    "name_en": "Qormi",
+    "name_mt": "Ħal Qormi",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Qormi",
+      "Hal Qormi",
+      "Ħal Qormi"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "hamrun",
+    "name_en": "Hamrun",
+    "name_mt": "Il-Ħamrun",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Hamrun",
+      "Il-Hamrun",
+      "Il-Ħamrun",
+      "Blata l-Bajda"
+    ],
+    "areas": [
+      "Blata l-Bajda"
+    ]
+  },
+  {
+    "slug": "msida",
+    "name_en": "Msida",
+    "name_mt": "L-Imsida",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Msida",
+      "L-Imsida",
+      "Swatar"
+    ],
+    "areas": [
+      "Swatar"
+    ]
+  },
+  {
+    "slug": "pembroke",
+    "name_en": "Pembroke",
+    "name_mt": "Pembroke",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Pembroke"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "san-gwann",
+    "name_en": "San Gwann",
+    "name_mt": "San Ġwann",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "San Gwann",
+      "San Ġwann",
+      "Kappara",
+      "St Andrews",
+      "St. Andrews"
+    ],
+    "areas": [
+      "Kappara",
+      "St Andrews"
+    ]
+  },
+  {
+    "slug": "santa-venera",
+    "name_en": "Santa Venera",
+    "name_mt": "Santa Venera",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Santa Venera"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "st-julians",
+    "name_en": "St Julian's",
+    "name_mt": "San Ġiljan",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "St Julian's",
+      "St Julians",
+      "St. Julians",
+      "St. Julian's",
+      "Saint Julian's",
+      "San Giljan",
+      "San Ġiljan",
+      "Paceville",
+      "Portomaso",
+      "St George's Bay"
+    ],
+    "areas": [
+      "Paceville",
+      "Portomaso",
+      "St George's Bay"
+    ]
+  },
+  {
+    "slug": "swieqi",
+    "name_en": "Swieqi",
+    "name_mt": "Is-Swieqi",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Swieqi",
+      "Is-Swieqi",
+      "Ibragg",
+      "Ta' l-Ibragg",
+      "Ta' l-ibragg",
+      "Madliena"
+    ],
+    "areas": [
+      "Ibragg",
+      "Madliena"
+    ]
+  },
+  {
+    "slug": "ta-xbiex",
+    "name_en": "Ta' Xbiex",
+    "name_mt": "Ta' Xbiex",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Ta' Xbiex",
+      "Ta Xbiex"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "pieta",
+    "name_en": "Pieta",
+    "name_mt": "Tal-Pietà",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Pieta",
+      "Pietà",
+      "Tal-Pieta",
+      "Tal-Pietà",
+      "Gwardamangia",
+      "Guardamangia"
+    ],
+    "areas": [
+      "Gwardamangia"
+    ]
+  },
+  {
+    "slug": "sliema",
+    "name_en": "Sliema",
+    "name_mt": "Tas-Sliema",
+    "district": "Northern Harbour",
+    "island": "malta",
+    "aliases": [
+      "Sliema",
+      "Tas-Sliema",
+      "Tigne",
+      "Tigne Point",
+      "Tigné",
+      "Fort Cambridge"
+    ],
+    "areas": [
+      "Tigne Point",
+      "Fort Cambridge",
+      "Tigne"
+    ]
+  },
+  {
+    "slug": "birzebbuga",
+    "name_en": "Birzebbuga",
+    "name_mt": "Birżebbuġa",
+    "district": "South Eastern",
+    "island": "malta",
+    "aliases": [
+      "Birzebbuga",
+      "Birzebbugia",
+      "Birżebbuġa",
+      "Pretty Bay"
+    ],
+    "areas": [
+      "Pretty Bay"
+    ]
+  },
+  {
+    "slug": "gudja",
+    "name_en": "Gudja",
+    "name_mt": "Il-Gudja",
+    "district": "South Eastern",
+    "island": "malta",
+    "aliases": [
+      "Gudja",
+      "Il-Gudja"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "ghaxaq",
+    "name_en": "Ghaxaq",
+    "name_mt": "Ħal Għaxaq",
+    "district": "South Eastern",
+    "island": "malta",
+    "aliases": [
+      "Ghaxaq",
+      "Hal Ghaxaq",
+      "Ħal Għaxaq"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "kirkop",
+    "name_en": "Kirkop",
+    "name_mt": "Ħal Kirkop",
+    "district": "South Eastern",
+    "island": "malta",
+    "aliases": [
+      "Kirkop",
+      "Hal Kirkop",
+      "Ħal Kirkop"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "safi",
+    "name_en": "Safi",
+    "name_mt": "Ħal Safi",
+    "district": "South Eastern",
+    "island": "malta",
+    "aliases": [
+      "Safi",
+      "Hal Safi",
+      "Ħal Safi"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "marsaskala",
+    "name_en": "Marsaskala",
+    "name_mt": "Marsaskala",
+    "district": "South Eastern",
+    "island": "malta",
+    "aliases": [
+      "Marsaskala",
+      "Marsascala",
+      "M'Scala",
+      "Wied il-Għajn",
+      "Ta Monita"
+    ],
+    "areas": [
+      "Ta Monita"
+    ]
+  },
+  {
+    "slug": "marsaxlokk",
+    "name_en": "Marsaxlokk",
+    "name_mt": "Marsaxlokk",
+    "district": "South Eastern",
+    "island": "malta",
+    "aliases": [
+      "Marsaxlokk"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "mqabba",
+    "name_en": "Mqabba",
+    "name_mt": "L-Imqabba",
+    "district": "South Eastern",
+    "island": "malta",
+    "aliases": [
+      "Mqabba",
+      "L-Imqabba"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "qrendi",
+    "name_en": "Qrendi",
+    "name_mt": "Il-Qrendi",
+    "district": "South Eastern",
+    "island": "malta",
+    "aliases": [
+      "Qrendi",
+      "Il-Qrendi"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "zejtun",
+    "name_en": "Zejtun",
+    "name_mt": "Iż-Żejtun",
+    "district": "South Eastern",
+    "island": "malta",
+    "aliases": [
+      "Zejtun",
+      "Iz-Zejtun",
+      "Iż-Żejtun"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "zurrieq",
+    "name_en": "Zurrieq",
+    "name_mt": "Iż-Żurrieq",
+    "district": "South Eastern",
+    "island": "malta",
+    "aliases": [
+      "Zurrieq",
+      "Iz-Zurrieq",
+      "Iż-Żurrieq"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "dingli",
+    "name_en": "Dingli",
+    "name_mt": "Ħad-Dingli",
+    "district": "Western",
+    "island": "malta",
+    "aliases": [
+      "Dingli",
+      "Had-Dingli",
+      "Ħad-Dingli"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "balzan",
+    "name_en": "Balzan",
+    "name_mt": "Ħal Balzan",
+    "district": "Western",
+    "island": "malta",
+    "aliases": [
+      "Balzan",
+      "Hal Balzan",
+      "Ħal Balzan"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "lija",
+    "name_en": "Lija",
+    "name_mt": "Ħal Lija",
+    "district": "Western",
+    "island": "malta",
+    "aliases": [
+      "Lija",
+      "Hal Lija",
+      "Ħal Lija"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "attard",
+    "name_en": "Attard",
+    "name_mt": "Ħ'Attard",
+    "district": "Western",
+    "island": "malta",
+    "aliases": [
+      "Attard",
+      "H'Attard",
+      "Ħ'Attard",
+      "Ta' Qali"
+    ],
+    "areas": [
+      "Ta' Qali"
+    ]
+  },
+  {
+    "slug": "zebbug",
+    "name_en": "Zebbug",
+    "name_mt": "Ħaż-Żebbuġ",
+    "district": "Western",
+    "island": "malta",
+    "aliases": [
+      "Zebbug",
+      "Haz-Zebbug",
+      "Ħaż-Żebbuġ"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "iklin",
+    "name_en": "Iklin",
+    "name_mt": "L-Iklin",
+    "district": "Western",
+    "island": "malta",
+    "aliases": [
+      "Iklin",
+      "L-Iklin",
+      "L'Iklin"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "mdina",
+    "name_en": "Mdina",
+    "name_mt": "L-Imdina",
+    "district": "Western",
+    "island": "malta",
+    "aliases": [
+      "Mdina",
+      "L-Imdina"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "mtarfa",
+    "name_en": "Mtarfa",
+    "name_mt": "L-Imtarfa",
+    "district": "Western",
+    "island": "malta",
+    "aliases": [
+      "Mtarfa",
+      "L-Imtarfa"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "rabat",
+    "name_en": "Rabat",
+    "name_mt": "Ir-Rabat",
+    "district": "Western",
+    "island": "malta",
+    "aliases": [
+      "Rabat",
+      "Ir-Rabat",
+      "Bahrija",
+      "Baħrija",
+      "Mtahleb",
+      "Buskett"
+    ],
+    "areas": [
+      "Bahrija",
+      "Mtahleb",
+      "Buskett"
+    ]
+  },
+  {
+    "slug": "siggiewi",
+    "name_en": "Siggiewi",
+    "name_mt": "Is-Siġġiewi",
+    "district": "Western",
+    "island": "malta",
+    "aliases": [
+      "Siggiewi",
+      "Is-Siggiewi",
+      "Is-Siġġiewi"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "gharghur",
+    "name_en": "Gharghur",
+    "name_mt": "Ħal Għargħur",
+    "district": "Northern",
+    "island": "malta",
+    "aliases": [
+      "Gharghur",
+      "Hal Gharghur",
+      "Ħal Għargħur"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "mellieha",
+    "name_en": "Mellieha",
+    "name_mt": "Il-Mellieħa",
+    "district": "Northern",
+    "island": "malta",
+    "aliases": [
+      "Mellieha",
+      "Il-Mellieha",
+      "Il-Mellieħa",
+      "Ghadira",
+      "Mellieha Bay",
+      "Selmun",
+      "Manikata",
+      "Armier",
+      "Santa Maria Estate",
+      "Santa Marija Estate",
+      "Santa Maria Estates",
+      "Santa Marija Estates"
+    ],
+    "areas": [
+      "Santa Maria Estate",
+      "Ghadira",
+      "Mellieha Bay",
+      "Selmun",
+      "Manikata",
+      "Armier"
+    ]
+  },
+  {
+    "slug": "mgarr",
+    "name_en": "Mgarr",
+    "name_mt": "L-Imġarr",
+    "district": "Northern",
+    "island": "malta",
+    "aliases": [
+      "Mgarr",
+      "L-Imgarr",
+      "L-Imġarr",
+      "Zebbiegh",
+      "Ġnejna",
+      "Gnejna",
+      "Ghajn Tuffieha",
+      "Għajn Tuffieħa"
+    ],
+    "areas": [
+      "Zebbiegh",
+      "Gnejna",
+      "Ghajn Tuffieha"
+    ]
+  },
+  {
+    "slug": "mosta",
+    "name_en": "Mosta",
+    "name_mt": "Il-Mosta",
+    "district": "Northern",
+    "island": "malta",
+    "aliases": [
+      "Mosta",
+      "Il-Mosta",
+      "Bidnija"
+    ],
+    "areas": [
+      "Bidnija"
+    ]
+  },
+  {
+    "slug": "naxxar",
+    "name_en": "Naxxar",
+    "name_mt": "In-Naxxar",
+    "district": "Northern",
+    "island": "malta",
+    "aliases": [
+      "Naxxar",
+      "In-Naxxar",
+      "San Pawl tat-Targa",
+      "Birguma",
+      "Maghtab",
+      "Bahar ic-Caghaq",
+      "Bahar Ic-Caghaq",
+      "Baħar iċ-Ċagħaq"
+    ],
+    "areas": [
+      "San Pawl tat-Targa",
+      "Birguma",
+      "Maghtab",
+      "Bahar ic-Caghaq"
+    ]
+  },
+  {
+    "slug": "st-pauls-bay",
+    "name_en": "St Paul's Bay",
+    "name_mt": "San Pawl Il-Baħar",
+    "district": "Northern",
+    "island": "malta",
+    "aliases": [
+      "St Paul's Bay",
+      "St Pauls Bay",
+      "St. Paul's Bay",
+      "Saint Paul's Bay",
+      "San Pawl il-Bahar",
+      "San Pawl Il-Baħar",
+      "Qawra",
+      "Bugibba",
+      "Xemxija",
+      "Burmarrad",
+      "Salina",
+      "Wardija"
+    ],
+    "areas": [
+      "Qawra",
+      "Bugibba",
+      "Xemxija",
+      "Burmarrad",
+      "Salina",
+      "Wardija"
+    ]
+  },
+  {
+    "slug": "fontana",
+    "name_en": "Fontana",
+    "name_mt": "Il-Fontana",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Fontana",
+      "Il-Fontana"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "ghajnsielem",
+    "name_en": "Ghajnsielem",
+    "name_mt": "Għajnsielem",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Ghajnsielem",
+      "Għajnsielem",
+      "Comino",
+      "Mgarr Gozo",
+      "Mgarr - Gozo"
+    ],
+    "areas": [
+      "Comino"
+    ]
+  },
+  {
+    "slug": "gharb",
+    "name_en": "Gharb",
+    "name_mt": "L-Għarb",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Gharb",
+      "L-Gharb",
+      "L-Għarb"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "ghasri",
+    "name_en": "Ghasri",
+    "name_mt": "L-Għasri",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Ghasri",
+      "L-Ghasri",
+      "L-Għasri"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "munxar",
+    "name_en": "Munxar",
+    "name_mt": "Il-Munxar",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Munxar",
+      "Il-Munxar",
+      "Xlendi"
+    ],
+    "areas": [
+      "Xlendi"
+    ]
+  },
+  {
+    "slug": "nadur",
+    "name_en": "Nadur",
+    "name_mt": "In-Nadur",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Nadur",
+      "In-Nadur"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "qala",
+    "name_en": "Qala",
+    "name_mt": "Il-Qala",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Qala",
+      "Il-Qala"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "san-lawrenz",
+    "name_en": "San Lawrenz",
+    "name_mt": "San Lawrenz",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "San Lawrenz",
+      "Dwejra Gozo"
+    ],
+    "areas": [
+      "Dwejra"
+    ]
+  },
+  {
+    "slug": "kercem",
+    "name_en": "Kercem",
+    "name_mt": "Ta' Kerċem",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Kercem",
+      "Ta' Kercem",
+      "Ta' Kerċem",
+      "Kerċem"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "sannat",
+    "name_en": "Sannat",
+    "name_mt": "Ta' Sannat",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Sannat",
+      "Ta' Sannat"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "victoria",
+    "name_en": "Victoria (Rabat, Gozo)",
+    "name_mt": "Ir-Rabat, Għawdex",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Victoria",
+      "Victoria Gozo",
+      "Rabat Gozo",
+      "Gozo - Rabat (Victoria)",
+      "Ir-Rabat Gozo",
+      "Ir-Rabat, Għawdex"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "xaghra",
+    "name_en": "Xaghra",
+    "name_mt": "Ix-Xagħra",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Xaghra",
+      "Ix-Xaghra",
+      "Ix-Xagħra"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "xewkija",
+    "name_en": "Xewkija",
+    "name_mt": "Ix-Xewkija",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Xewkija",
+      "Ix-Xewkija"
+    ],
+    "areas": []
+  },
+  {
+    "slug": "zebbug-gozo",
+    "name_en": "Zebbug (Gozo)",
+    "name_mt": "Iż-Żebbuġ",
+    "district": "Gozo",
+    "island": "gozo",
+    "aliases": [
+      "Zebbug Gozo",
+      "Iz-Zebbug Gozo",
+      "Iż-Żebbuġ",
+      "Marsalforn"
+    ],
+    "areas": [
+      "Marsalforn"
+    ]
+  }
+]
