@@ -64,7 +64,8 @@ export default async function ListingsPage() {
         <CardHeader className="border-b border-sky-100/80 bg-gradient-to-r from-sky-50/80 to-amber-50/40 py-4">
           <CardTitle className="text-sky-950">Property Listings</CardTitle>
           <CardDescription>
-            Filter by source, locality, or type. Sort any column — 50 per page by default.
+            On mobile, search by locality, region, type, or price. On desktop, use the filters below. Sort any
+            column — 50 per page by default.
           </CardDescription>
         </CardHeader>
         <CardContent className="py-4">
