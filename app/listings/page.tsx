@@ -76,14 +76,14 @@ export default async function ListingsPage() {
         })}
       </div>
 
-      <Card className="ring-sky-100/80">
-        <CardHeader className="border-b border-sky-100/80 bg-gradient-to-r from-sky-50/80 to-amber-50/40">
-          <CardTitle className="text-sky-950">Scraped listings</CardTitle>
+      <Card className="gap-0 overflow-hidden py-0 ring-sky-100/80">
+        <CardHeader className="border-b border-sky-100/80 bg-gradient-to-r from-sky-50/80 to-amber-50/40 py-4">
+          <CardTitle className="text-sky-950">Property Listings</CardTitle>
           <CardDescription>
-            Search or type a locality, area, or type, then sort any column. Pages of 50 by default.
+            Filter by source, locality, or type. Sort any column — 50 per page by default.
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-4">
+        <CardContent className="py-4">
           {previews.length ? (
             <ListingsTable
               listings={previews}

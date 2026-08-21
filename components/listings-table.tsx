@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpDown, ImageIcon, Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ImageIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { FilterCombobox } from "@/components/filter-combobox";
 import { sourceTheme, typeBadgeClass } from "@/components/listing-theme";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -58,7 +57,6 @@ export function ListingsTable({
     });
   }, [listings]);
 
-  const [query, setQuery] = useState("");
   const [source, setSource] = useState<string>("all");
   const [localityId, setLocalityId] = useState("");
   const [area, setArea] = useState("");
@@ -128,21 +126,15 @@ export function ListingsTable({
 
   const activeArea = areaOptions.some(([name]) => name === area) ? area : "";
 
-  const tokens = useMemo(
-    () => query.trim().toLowerCase().split(/\s+/).filter(Boolean),
-    [query],
-  );
-
   const filtered = useMemo(() => {
     return uniqueListings.filter((row) => {
       if (source !== "all" && row.source !== source) return false;
       if (localityId && row.locality_id !== localityId) return false;
       if (activeArea && !listingMatchesArea(row, activeArea)) return false;
       if (propertyType !== "all" && row.property_type !== propertyType) return false;
-      if (tokens.length && !tokens.every((token) => listingHaystack(row).includes(token))) return false;
       return true;
     });
-  }, [uniqueListings, source, localityId, activeArea, propertyType, tokens]);
+  }, [uniqueListings, source, localityId, activeArea, propertyType]);
 
   const sorted = useMemo(() => {
     const rows = [...filtered];
@@ -155,11 +147,6 @@ export function ListingsTable({
   const from = sorted.length ? (currentPage - 1) * pageSize + 1 : 0;
   const to = Math.min(currentPage * pageSize, sorted.length);
   const pageRows = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-  function applyQuery(value: string) {
-    setQuery(value);
-    setPage(1);
-  }
 
   function applySource(value: string) {
     setSource(value);
@@ -183,7 +170,6 @@ export function ListingsTable({
   }
 
   function clearFilters() {
-    setQuery("");
     setSource("all");
     setLocalityId("");
     setArea("");
@@ -191,7 +177,7 @@ export function ListingsTable({
     setPage(1);
   }
 
-  const filtersActive = Boolean(query.trim() || source !== "all" || localityId || activeArea || propertyType !== "all");
+  const filtersActive = Boolean(source !== "all" || localityId || activeArea || propertyType !== "all");
 
   const localityOptions = localityGroups.flatMap((group) =>
     group.localities.map((row) => {
@@ -229,28 +215,6 @@ export function ListingsTable({
   return (
     <div className="space-y-4">
       <div className="space-y-3 rounded-xl bg-gradient-to-br from-sky-50 via-background to-amber-50/70 p-3 ring-1 ring-sky-100/80">
-        <div className="relative">
-          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-          <Input
-            value={query}
-            onChange={(event) => applyQuery(event.target.value)}
-            placeholder="Search title, street, locality, type…"
-            aria-label="Search listings"
-            autoComplete="off"
-            className="bg-background h-9 pr-9 pl-9"
-          />
-          {query ? (
-            <button
-              type="button"
-              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 rounded-md p-1"
-              onClick={() => applyQuery("")}
-              aria-label="Clear search"
-            >
-              <X className="size-3.5" />
-            </button>
-          ) : null}
-        </div>
-
         <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
@@ -471,22 +435,6 @@ export function ListingsTable({
       )}
     </div>
   );
-}
-
-function listingHaystack(row: ListingPreview) {
-  return [
-    row.title,
-    row.street,
-    row.localityName,
-    row.area,
-    row.property_type,
-    typeLabel(row.property_type),
-    sourceTheme(row.source).label,
-    row.source,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
 }
 
 function SortHead({
