@@ -37,6 +37,25 @@ def listing(source: str, item: dict[str, Any]) -> None:
     logger.debug("[%s]   %s", source, _format_listing(item))
 
 
+def images_start(source: str, total: int, workers: int) -> None:
+    logger.info("[%s] images — %s missing, %s workers", source, total, workers)
+
+
+def images(source: str, done: int, total: int, updated: int) -> None:
+    logger.info("[%s] images — %s/%s checked, %s updated", source, done, total, updated)
+
+
+def images_done(source: str, updated: int, failed: int, skipped: int, total: int) -> None:
+    logger.info(
+        "[%s] images done — %s updated, %s failed, %s skipped, %s missing",
+        source,
+        updated,
+        failed,
+        skipped,
+        total,
+    )
+
+
 def details(source: str, fetched: int, skipped: int, failed: int) -> None:
     logger.info(
         "[%s] details — %s fetched, %s skipped, %s failed",

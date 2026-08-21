@@ -36,6 +36,13 @@ def parse_image_url(value: Any) -> str | None:
     return None
 
 
+def listing_url(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    return text or None
+
+
 class NormalizedListing(dict):
     source: str
     external_id: str
@@ -97,54 +104,23 @@ def dedupe_by_external_id(listings: list[dict[str, Any]]) -> tuple[list[dict[str
     return deduped, len(listings) - len(deduped)
 
 
-def dedupe_rows_by_fingerprint(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
-    by_fp: dict[str, dict[str, Any]] = {}
-    no_fp: list[dict[str, Any]] = []
+def dedupe_rows_by_url(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+    by_url: dict[str, dict[str, Any]] = {}
+    no_url: list[dict[str, Any]] = []
     removed = 0
     for row in rows:
-        fp = row.get("fingerprint")
-        if not fp:
-            no_fp.append(row)
+        url = listing_url(row.get("url"))
+        if not url:
+            no_url.append(row)
             continue
-        existing = by_fp.get(fp)
+        existing = by_url.get(url)
         if not existing:
-            by_fp[fp] = row
+            by_url[url] = row
             continue
         removed += 1
         if _listing_quality(row) > _listing_quality(existing):
-            by_fp[fp] = row
-    return no_fp + list(by_fp.values()), removed
-
-
-def filter_existing_fingerprint_dupes(
-    http,
-    source: str,
-    rows: list[dict[str, Any]],
-) -> tuple[list[dict[str, Any]], int]:
-    fps = sorted({row["fingerprint"] for row in rows if row.get("fingerprint")})
-    if not fps:
-        return rows, 0
-    existing = _existing_by_fingerprint(http, fps)
-    kept: list[dict[str, Any]] = []
-    removed = 0
-    claimed: set[str] = set()
-    for row in rows:
-        fp = row.get("fingerprint")
-        if not fp:
-            kept.append(row)
-            continue
-        if fp in claimed:
-            removed += 1
-            continue
-        match = existing.get(fp)
-        if match and not (
-            match["source"] == source and match["external_id"] == row["external_id"]
-        ):
-            removed += 1
-            continue
-        claimed.add(fp)
-        kept.append(row)
-    return kept, removed
+            by_url[url] = row
+    return no_url + list(by_url.values()), removed
 
 
 def listing_area(slug: str | None, item: dict[str, Any]) -> str | None:
@@ -201,6 +177,19 @@ def backfill_listing_areas() -> int:
     return updated
 
 
+def missing_image_rows(source: str | None = None) -> list[dict[str, Any]]:
+    params = {
+        "select": "id,source,external_id,url",
+        "image_url": "is.null",
+        "is_active": "eq.true",
+        "order": "id",
+    }
+    if source:
+        params["source"] = f"eq.{source}"
+    with client() as http:
+        return _all_rows(http, "/listings", params)
+
+
 def listings_already_detailed(source: str) -> set[str]:
     with client() as http:
         rows = _all_rows(
@@ -250,9 +239,9 @@ class ListingSink:
     def __init__(self, source: str):
         self.source = source
         self.locality_ids = fetch_locality_ids()
-        self.existing_fps = _load_active_fingerprints()
+        self.existing_urls = _load_listing_urls()
         self.known = _load_source_listings(source)
-        self.claimed_fps: set[str] = set()
+        self.claimed_urls: set[str] = set()
         self.seen_ids: list[str] = []
         self.upserted = 0
         self.duplicates = 0
@@ -330,11 +319,11 @@ class ListingSink:
                     row[key] = item[key]
             rows.append(row)
 
-        rows, fp_dupes = dedupe_rows_by_fingerprint(rows)
-        rows, cross_dupes = _drop_fingerprint_dupes(
-            self.source, rows, self.existing_fps, self.claimed_fps
+        rows, url_dupes = dedupe_rows_by_url(rows)
+        rows, cross_dupes = _drop_url_dupes(
+            self.source, rows, self.existing_urls, self.claimed_urls
         )
-        self.duplicates += fp_dupes + cross_dupes
+        self.duplicates += url_dupes + cross_dupes
         self.seen_ids.extend(row["external_id"] for row in rows)
         if not rows:
             return
@@ -342,9 +331,9 @@ class ListingSink:
         with client() as http:
             self.upserted += _post_listing_rows(http, self.source, rows, now)
         for row in rows:
-            fp = row.get("fingerprint")
-            if fp:
-                self.existing_fps[fp] = {
+            url = listing_url(row.get("url"))
+            if url:
+                self.existing_urls[url] = {
                     "source": self.source,
                     "external_id": row["external_id"],
                 }
@@ -361,7 +350,6 @@ class ListingSink:
         with client() as http:
             if self.seen_ids and not max_pages():
                 self.inactivated += _inactivate_missing(http, self.source, set(self.seen_ids))
-            self.inactivated += _inactivate_fingerprint_dupes(http)
         return self.inactivated
 
 
@@ -372,27 +360,25 @@ def upsert_listings(source: str, listings: Iterable[dict[str, Any]]) -> tuple[in
     return sink.upserted, inactivated, sink.duplicates
 
 
-def _load_active_fingerprints() -> dict[str, dict[str, Any]]:
+def _load_listing_urls() -> dict[str, dict[str, Any]]:
     with client() as http:
         rows = _all_rows(
             http,
             "/listings",
             {
-                "select": "id,source,external_id,fingerprint,first_seen",
-                "fingerprint": "not.is.null",
-                "is_active": "eq.true",
-                "order": "first_seen",
+                "select": "id,source,external_id,url",
+                "order": "id",
             },
         )
-    by_fp: dict[str, dict[str, Any]] = {}
+    by_url: dict[str, dict[str, Any]] = {}
     for row in rows:
-        fp = row.get("fingerprint")
-        if fp and fp not in by_fp:
-            by_fp[fp] = row
-    return by_fp
+        url = listing_url(row.get("url"))
+        if url and url not in by_url:
+            by_url[url] = row
+    return by_url
 
 
-def _drop_fingerprint_dupes(
+def _drop_url_dupes(
     source: str,
     rows: list[dict[str, Any]],
     existing: dict[str, dict[str, Any]],
@@ -401,20 +387,20 @@ def _drop_fingerprint_dupes(
     kept: list[dict[str, Any]] = []
     removed = 0
     for row in rows:
-        fp = row.get("fingerprint")
-        if not fp:
+        url = listing_url(row.get("url"))
+        if not url:
             kept.append(row)
             continue
-        if fp in claimed:
+        if url in claimed:
             removed += 1
             continue
-        match = existing.get(fp)
+        match = existing.get(url)
         if match and not (
             match["source"] == source and match["external_id"] == row["external_id"]
         ):
             removed += 1
             continue
-        claimed.add(fp)
+        claimed.add(url)
         kept.append(row)
     return kept, removed
 
@@ -493,62 +479,6 @@ def _inactivate_missing(http, source: str, seen_ids: set[str]) -> int:
     return inactivated
 
 
-def _existing_by_fingerprint(http, fingerprints: list[str]) -> dict[str, dict[str, Any]]:
-    wanted = set(fingerprints)
-    if not wanted:
-        return {}
-    rows = _all_rows(
-        http,
-        "/listings",
-        {
-            "select": "id,source,external_id,fingerprint,first_seen",
-            "fingerprint": "not.is.null",
-            "is_active": "eq.true",
-            "order": "first_seen",
-        },
-    )
-    by_fp: dict[str, dict[str, Any]] = {}
-    for row in rows:
-        fp = row.get("fingerprint")
-        if fp and fp in wanted and fp not in by_fp:
-            by_fp[fp] = row
-    return by_fp
-
-
-def _inactivate_fingerprint_dupes(http) -> int:
-    rows = _all_rows(
-        http,
-        "/listings",
-        {
-            "select": "id,fingerprint,first_seen",
-            "fingerprint": "not.is.null",
-            "is_active": "eq.true",
-            "order": "first_seen",
-        },
-    )
-    by_fp: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        by_fp.setdefault(row["fingerprint"], []).append(row)
-    duplicate_ids: list[str] = []
-    for group in by_fp.values():
-        if len(group) < 2:
-            continue
-        group.sort(key=lambda row: row.get("first_seen") or "")
-        duplicate_ids.extend(row["id"] for row in group[1:])
-    inactivated = 0
-    for chunk_ids in chunks(duplicate_ids, 80):
-        filt = ",".join(chunk_ids)
-        patch = http.patch(
-            f"/listings?id=in.({filt})",
-            json={"is_active": False},
-            headers={"prefer": "return=minimal"},
-        )
-        if patch.status_code >= 300:
-            raise RuntimeError(f"Fingerprint dedupe inactivate failed: {patch.text}")
-        inactivated += len(chunk_ids)
-    return inactivated
-
-
 def _existing(http, source: str, external_ids: list[str]) -> dict[str, dict[str, Any]]:
     if not external_ids:
         return {}
@@ -591,7 +521,7 @@ def _all_rows(http, path: str, params: dict[str, str]) -> list[dict[str, Any]]:
         if len(batch) < page:
             break
         start += page
-        if start > 50000:
+        if start > 200000:
             break
     return rows
 

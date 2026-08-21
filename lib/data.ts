@@ -30,7 +30,7 @@ async function paginate<T>(
 ) {
   const page = 1000;
   const out: T[] = [];
-  for (let from = 0; from < 30000; from += page) {
+  for (let from = 0; from < 200000; from += page) {
     const { data, error } = await fetcher(from, from + page - 1);
     if (error) throw error;
     const rows = data ?? [];

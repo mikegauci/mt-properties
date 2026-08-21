@@ -8,6 +8,7 @@ from . import nso
 from .agencies import propertymarket, remax, zanzi
 from . import log
 from .store import FLUSH_SIZE, ListingSink, backfill_listing_areas, finish_run, start_run
+from . import images_backfill
 
 AGENCIES = {
     "remax": remax,
@@ -32,6 +33,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Log each listing (or set SCRAPE_VERBOSE=1)",
     )
     sub.add_parser("backfill-areas", help="Set listings.area from stored Town/Zone/title")
+    images = sub.add_parser("backfill-images", help="Fill missing listing thumbnails from stored URLs")
+    images.add_argument("--source", choices=[*AGENCIES, "all"], default="all")
+    images.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Parallel detail-page fetches (default 12, or IMAGE_BACKFILL_WORKERS)",
+    )
 
     args = parser.parse_args(argv)
     log.configure(verbose=bool(getattr(args, "verbose", False)))
@@ -46,6 +55,12 @@ def main(argv: list[str] | None = None) -> int:
         print({"areas_updated": updated})
         return 0
 
+    if args.command == "backfill-images":
+        source = None if args.source == "all" else args.source
+        result = images_backfill.run(source, workers=args.workers)
+        print(result)
+        return 0
+
     sources = list(AGENCIES) if args.source == "all" else [args.source]
     failed = False
     for source in sources:
@@ -57,6 +72,7 @@ def run_agency(source: str) -> bool:
     module = AGENCIES[source]
     run_id = start_run(source)
     log.source_start(source)
+    images_backfill.run(source)
     sink = ListingSink(source)
     scraped = 0
     try:

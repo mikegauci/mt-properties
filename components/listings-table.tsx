@@ -386,7 +386,7 @@ export function ListingsTable({
               <TableRow key={listing.id} className="hover:bg-sky-50/50">
                 <TableCell className="max-w-xs whitespace-normal">
                   <div className="flex items-start gap-3">
-                    <ListingThumb url={listing.image_url} />
+                    <ListingThumb href={listing.url} url={listing.image_url} />
                     <div className="min-w-0">
                       <a
                         className="line-clamp-2 font-medium text-sky-950 hover:text-sky-700 hover:underline"
@@ -575,25 +575,28 @@ function seenLabel(value: string) {
   return date.toLocaleDateString("en-MT", { day: "numeric", month: "short" });
 }
 
-function ListingThumb({ url }: { url: string | null }) {
+function ListingThumb({ href, url }: { href: string; url: string | null }) {
   const [failed, setFailed] = useState(false);
-  if (!url || failed) {
-    return (
+  const thumb =
+    !url || failed ? (
       <div className="bg-sky-50 text-muted-foreground flex size-14 shrink-0 items-center justify-center rounded-md">
         <ImageIcon className="size-4" />
       </div>
+    ) : (
+      <img
+        alt=""
+        className="bg-sky-50 size-14 shrink-0 rounded-md object-cover"
+        height={56}
+        loading="lazy"
+        onError={() => setFailed(true)}
+        referrerPolicy="no-referrer"
+        src={url}
+        width={56}
+      />
     );
-  }
   return (
-    <img
-      alt=""
-      className="bg-sky-50 size-14 shrink-0 rounded-md object-cover"
-      height={56}
-      loading="lazy"
-      onError={() => setFailed(true)}
-      referrerPolicy="no-referrer"
-      src={url}
-      width={56}
-    />
+    <a className="shrink-0" href={href} rel="noreferrer" target="_blank">
+      {thumb}
+    </a>
   );
 }

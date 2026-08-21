@@ -15,6 +15,18 @@ def sleep() -> None:
     time.sleep(float(os.environ.get("SCRAPE_DELAY_SECONDS", "0.1")))
 
 
+def image_backfill_workers() -> int:
+    raw = os.environ.get("IMAGE_BACKFILL_WORKERS")
+    return max(1, int(raw)) if raw else 12
+
+
+def image_backfill_delay() -> float:
+    raw = os.environ.get("IMAGE_BACKFILL_DELAY_SECONDS")
+    if raw is not None:
+        return max(0.0, float(raw))
+    return 0.0
+
+
 def max_pages() -> int | None:
     raw = os.environ.get("SCRAPE_MAX_PAGES")
     return int(raw) if raw else None

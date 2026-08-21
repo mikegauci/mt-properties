@@ -10,7 +10,8 @@
     "ingest": "PYTHONPATH=scraper python3 -m mtprop seed",
     "scrape": "PYTHONPATH=scraper python3 -m mtprop agencies",
     "scrape:propertymarket": "PYTHONPATH=scraper python3 -m mtprop agencies --source propertymarket",
-    "scrape:zanzi": "PYTHONPATH=scraper python3 -m mtprop agencies --source zanzi"
+    "scrape:zanzi": "PYTHONPATH=scraper python3 -m mtprop agencies --source zanzi",
+    "scrape:images": "PYTHONPATH=scraper python3 -m mtprop backfill-images"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
