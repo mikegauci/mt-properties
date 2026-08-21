@@ -30,17 +30,89 @@ PYTHONPATH=scraper python3 -m mtprop seed
 npm run dev
 ```
 
-5. Scrape listings (polite public JSON/HTML; no logins):
+5. Open the app:
 
 ```bash
-PYTHONPATH=scraper python3 -m mtprop agencies
+npm run dev
 ```
 
-RE/MAX exposes a public JSON feed. PropertyMarket and Zanzi are public HTML listing pages. A partial test run:
+## Local runs
+
+All scraper commands write straight to Supabase. Refresh [mt-properties.vercel.app](https://mt-properties.vercel.app/listings) after a run — no redeploy needed for data changes.
+
+### One-time / reference data
 
 ```bash
-SCRAPE_MAX_PAGES=1 PYTHONPATH=scraper python3 -m mtprop agencies --source zanzi
+npm run ingest
 ```
+
+Seeds localities, NSO transactions, and the Eurostat house-price index. Re-run to refresh official series:
+
+```bash
+PYTHONPATH=scraper python3 -m mtprop nso
+```
+
+### Scrape listings
+
+All sources:
+
+```bash
+npm run scrape
+```
+
+Single source:
+
+```bash
+npm run scrape:propertymarket
+npm run scrape:zanzi
+PYTHONPATH=scraper python3 -m mtprop agencies --source remax
+```
+
+Short test (first page only):
+
+```bash
+SCRAPE_MAX_PAGES=1 npm run scrape:propertymarket
+```
+
+Verbose logging (or set `SCRAPE_VERBOSE=1` in `.env`):
+
+```bash
+SCRAPE_VERBOSE=1 npm run scrape:propertymarket
+```
+
+Listings save in batches as the scrape runs. Ctrl+C keeps whatever was already flushed; only the end-of-run inactivation step is skipped.
+
+### Backfill thumbnails
+
+Fill missing `image_url` values for listings already in the database:
+
+```bash
+npm run scrape:images
+```
+
+Property Market only, with more parallel fetches:
+
+```bash
+PYTHONPATH=scraper python3 -m mtprop backfill-images --source propertymarket --workers 20
+```
+
+Optional `.env` tuning: `IMAGE_BACKFILL_WORKERS` (default 12), `IMAGE_BACKFILL_DELAY_SECONDS` (default 0).
+
+### Backfill areas
+
+Set `listings.area` from stored Town/Zone/title text:
+
+```bash
+PYTHONPATH=scraper python3 -m mtprop backfill-areas
+```
+
+### Optional scrape tuning
+
+In `.env`:
+
+- `SCRAPE_DELAY_SECONDS` — pause between listing pages (default 0.1)
+- `SCRAPE_MAX_PAGES` — cap pages per source (omit for a full run)
+- `SCRAPE_VERBOSE=1` — log every listing
 
 ## Daily updates
 
