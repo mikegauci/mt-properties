@@ -27,8 +27,8 @@ export default async function HealthPage() {
         </p>
       </div>
       {!configured ? <SetupBanner /> : null}
-      <div className="grid gap-4 sm:grid-cols-3">
-        {["remax", "propertymarket", "zanzi"].map((source) => {
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {["remax", "propertymarket", "zanzi", "facebook"].map((source) => {
           const count = counts.find((row) => row.source === source)?.count ?? 0;
           return (
             <Card key={source}>

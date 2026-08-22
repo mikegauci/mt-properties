@@ -57,6 +57,8 @@ def _cards(soup: BeautifulSoup) -> Iterator[dict]:
         external_id = _external_id(url)
         if not external_id:
             continue
+        for counter in node.select(".searchResultListingImageCounter"):
+            counter.decompose()
         text = " ".join(node.get_text(" ", strip=True).split())
         if re.search(r"\bfor rent\b|\bto let\b", text, re.I):
             continue

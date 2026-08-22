@@ -23,6 +23,13 @@ export const SOURCE_THEME: Record<
     badge: "bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100",
     badgeActive: "bg-emerald-700 text-white ring-1 ring-inset ring-emerald-700 hover:bg-emerald-800",
   },
+  facebook: {
+    label: "Facebook Marketplace",
+    card: "bg-indigo-50/90 ring-indigo-200/70",
+    value: "text-indigo-800",
+    badge: "bg-indigo-50 text-indigo-800 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-100",
+    badgeActive: "bg-indigo-700 text-white ring-1 ring-inset ring-indigo-700 hover:bg-indigo-800",
+  },
 };
 
 const FALLBACK_SOURCE = {

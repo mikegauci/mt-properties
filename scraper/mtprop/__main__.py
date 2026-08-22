@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import traceback
 
 from . import nso
-from .agencies import propertymarket, remax, zanzi
+from .agencies import facebook, propertymarket, remax, zanzi
 from . import log
 from .agencies.http import INCREMENTAL_PAGES, reset_max_pages, scrape_full, use_max_pages
 from .store import (
@@ -22,6 +23,7 @@ AGENCIES = {
     "remax": remax,
     "propertymarket": propertymarket,
     "zanzi": zanzi,
+    "facebook": facebook,
 }
 
 
@@ -82,6 +84,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def run_agency(source: str, *, full: bool = False) -> bool:
+    if source == "facebook" and not os.environ.get("APIFY_API_TOKEN"):
+        print(f"{source}: skipped (APIFY_API_TOKEN not set)", file=sys.stderr)
+        return False
     module = AGENCIES[source]
     cap_token = None
     incremental = False
@@ -91,7 +96,8 @@ def run_agency(source: str, *, full: bool = False) -> bool:
     try:
         run_id = start_run(source)
         log.source_start(source, pages=INCREMENTAL_PAGES if incremental else None)
-        images_backfill.run(source)
+        if source != "facebook":
+            images_backfill.run(source)
         sink = ListingSink(source)
         scraped = 0
         try:

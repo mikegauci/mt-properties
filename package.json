@@ -11,6 +11,7 @@
     "scrape": "PYTHONPATH=scraper python3 -m mtprop agencies",
     "scrape:propertymarket": "PYTHONPATH=scraper python3 -m mtprop agencies --source propertymarket",
     "scrape:zanzi": "PYTHONPATH=scraper python3 -m mtprop agencies --source zanzi",
+    "scrape:facebook": "PYTHONPATH=scraper python3 -m mtprop agencies --source facebook",
     "scrape:images": "PYTHONPATH=scraper python3 -m mtprop backfill-images"
   },
   "dependencies": {

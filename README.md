@@ -6,9 +6,9 @@ Personal Malta property intelligence: official sold-price indexes plus asking pr
 
 - **House price index** — NSO series published via Eurostat (`prc_hpi_q`, 2015 = 100). National only. This is the sold-price change.
 - **NSO transactions** — deed counts. Declared sale totals exist nationally; **NSO does not publish declared values by locality**.
-- **Asking prices** — RE/MAX Malta, PropertyMarket.com.mt, and Zanzi Homes public listings, scraped daily. Locality €/m² and valuations come from this. History starts on the first successful scrape.
+- **Asking prices** — RE/MAX Malta, PropertyMarket.com.mt, Zanzi Homes, and Facebook Marketplace property-for-sale listings (last 30 days via Apify). Locality €/m² and valuations come from agency feeds; Facebook adds informal owner/agent posts. History starts on the first successful scrape.
 
-Facebook Marketplace is out of scope.
+Facebook Marketplace runs through [Apify](https://apify.com/) and needs `APIFY_API_TOKEN`. Expect lower field completeness (beds, sqm, locality) than agency feeds.
 
 ## Stack
 
@@ -65,8 +65,34 @@ Single source:
 ```bash
 npm run scrape:propertymarket
 npm run scrape:zanzi
+npm run scrape:facebook
 PYTHONPATH=scraper python3 -m mtprop agencies --source remax
 ```
+
+Facebook Marketplace (requires `APIFY_API_TOKEN` in `.env`):
+
+```bash
+npm run scrape:facebook
+```
+
+**Cursor + Apify MCP:** [`.cursor/mcp.json`](.cursor/mcp.json) connects this repo to Apify (OAuth). From chat you can search actors, run `curious_coder/facebook-marketplace`, and inspect results without pasting a token here. The Python scraper and GitHub Actions still need `APIFY_API_TOKEN` in `.env` / repo secrets.
+
+### Apify API token (local + CI)
+
+MCP OAuth covers chat only. For `npm run scrape:facebook` and daily GitHub Actions:
+
+1. Open [Apify → Integrations](https://console.apify.com/account/integrations) → **Personal API tokens** → **Create token**.
+2. Add to `.env` (do not commit):
+   ```bash
+   APIFY_API_TOKEN=apify_api_...
+   ```
+3. Add the same value as a GitHub repo secret:
+   ```bash
+   gh secret set APIFY_API_TOKEN
+   ```
+   Paste the token when prompted.
+
+Default scrape URL is Valletta-area property-for-sale (`110612325626836/propertyforsale`) with a 30-day filter. Override with `APIFY_FB_URL` if needed.
 
 Short test (first page only):
 
@@ -114,8 +140,11 @@ In `.env`:
 - `SCRAPE_MAX_PAGES` — cap pages per source (omit for a full run)
 - `SCRAPE_FULL=1` — force every page even after a full scrape exists
 - `SCRAPE_VERBOSE=1` — log every listing
+- `APIFY_API_TOKEN` — Apify API token for Facebook Marketplace
+- `APIFY_FB_MAX_PAGES` — cap Apify search pages (default 50)
+- `APIFY_FB_DAYS_LISTED` — Facebook date filter in days (default 30)
 
-Daily GitHub runs scan the first 5 pages once a source already has a successful full scrape. Sundays run a full pass so dropped listings can be inactivated. Locally: `python3 -m mtprop agencies --full`.
+Daily GitHub runs scan the first 5 pages once a source already has a successful full scrape. Sundays run a full pass so dropped listings can be inactivated. Locally: `python3 -m mtprop agencies --full`. Facebook always runs a full Apify fetch (30-day window).
 
 ## Daily updates
 
@@ -124,7 +153,7 @@ GitHub Actions:
 - `.github/workflows/daily-scrape.yml` — 03:00 UTC (5 newest pages; full scan on Sundays)
 - `.github/workflows/weekly-nso.yml` — Mondays 06:00 UTC
 
-Repository secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+Repository secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `APIFY_API_TOKEN`.
 
 ## Valuation
 

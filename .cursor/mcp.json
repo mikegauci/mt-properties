@@ -2,6 +2,9 @@
   "mcpServers": {
     "supabase": {
       "url": "https://mcp.supabase.com/mcp?project_ref=wztnhzhpymgnnvezoaxh&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching"
+    },
+    "apify": {
+      "url": "https://mcp.apify.com/?tools=search-actors,call-actor,fetch-actor-details,curious_coder/facebook-marketplace"
     }
   }
 }
