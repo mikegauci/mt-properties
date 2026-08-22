@@ -7,7 +7,15 @@ import traceback
 from . import nso
 from .agencies import propertymarket, remax, zanzi
 from . import log
-from .store import FLUSH_SIZE, ListingSink, backfill_listing_areas, finish_run, start_run
+from .agencies.http import INCREMENTAL_PAGES, reset_max_pages, scrape_full, use_max_pages
+from .store import (
+    FLUSH_SIZE,
+    ListingSink,
+    backfill_listing_areas,
+    finish_run,
+    source_ready_for_incremental,
+    start_run,
+)
 from . import images_backfill
 
 AGENCIES = {
@@ -26,6 +34,11 @@ def main(argv: list[str] | None = None) -> int:
 
     agencies = sub.add_parser("agencies", help="Scrape agency listing feeds")
     agencies.add_argument("--source", choices=[*AGENCIES, "all"], default="all")
+    agencies.add_argument(
+        "--full",
+        action="store_true",
+        help="Scan every page (or set SCRAPE_FULL=1)",
+    )
     agencies.add_argument(
         "-v",
         "--verbose",
@@ -64,40 +77,49 @@ def main(argv: list[str] | None = None) -> int:
     sources = list(AGENCIES) if args.source == "all" else [args.source]
     failed = False
     for source in sources:
-        failed = run_agency(source) or failed
+        failed = run_agency(source, full=bool(args.full)) or failed
     return 1 if failed else 0
 
 
-def run_agency(source: str) -> bool:
+def run_agency(source: str, *, full: bool = False) -> bool:
     module = AGENCIES[source]
-    run_id = start_run(source)
-    log.source_start(source)
-    images_backfill.run(source)
-    sink = ListingSink(source)
-    scraped = 0
+    cap_token = None
+    incremental = False
+    if not full and not scrape_full() and source_ready_for_incremental(source):
+        cap_token = use_max_pages(INCREMENTAL_PAGES)
+        incremental = True
     try:
-        batch: list[dict] = []
-        for listing in module.fetch():
-            if log.verbose_enabled():
-                log.listing(source, listing)
-            batch.append(listing)
-            scraped += 1
-            if len(batch) >= FLUSH_SIZE:
+        run_id = start_run(source)
+        log.source_start(source, pages=INCREMENTAL_PAGES if incremental else None)
+        images_backfill.run(source)
+        sink = ListingSink(source)
+        scraped = 0
+        try:
+            batch: list[dict] = []
+            for listing in module.fetch():
+                if log.verbose_enabled():
+                    log.listing(source, listing)
+                batch.append(listing)
+                scraped += 1
+                if len(batch) >= FLUSH_SIZE:
+                    sink.write(batch)
+                    log.stored(source, sink.upserted, scraped, sink.skipped)
+                    batch = []
+            if batch:
                 sink.write(batch)
                 log.stored(source, sink.upserted, scraped, sink.skipped)
-                batch = []
-        if batch:
-            sink.write(batch)
-            log.stored(source, sink.upserted, scraped, sink.skipped)
-        inactivated = sink.finalize()
-        finish_run(run_id, upserted=sink.upserted, inactivated=inactivated)
-        log.source_done(source, scraped, sink.upserted, inactivated, sink.duplicates, sink.skipped)
-        return False
-    except Exception as exc:
-        traceback.print_exc()
-        finish_run(run_id, upserted=sink.upserted, inactivated=0, error=str(exc))
-        print(f"{source}: error {exc}", file=sys.stderr)
-        return True
+            inactivated = sink.finalize()
+            finish_run(run_id, upserted=sink.upserted, inactivated=inactivated)
+            log.source_done(source, scraped, sink.upserted, inactivated, sink.duplicates, sink.skipped)
+            return False
+        except Exception as exc:
+            traceback.print_exc()
+            finish_run(run_id, upserted=sink.upserted, inactivated=0, error=str(exc))
+            print(f"{source}: error {exc}", file=sys.stderr)
+            return True
+    finally:
+        if cap_token is not None:
+            reset_max_pages(cap_token)
 
 
 if __name__ == "__main__":

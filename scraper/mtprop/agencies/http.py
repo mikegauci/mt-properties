@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import time
+from contextvars import ContextVar, Token
 
 import httpx
 
@@ -27,9 +28,27 @@ def image_backfill_delay() -> float:
     return 0.0
 
 
+INCREMENTAL_PAGES = 5
+_forced_max_pages: ContextVar[int | None] = ContextVar("_forced_max_pages", default=None)
+
+
+def scrape_full() -> bool:
+    return os.environ.get("SCRAPE_FULL", "").lower() in {"1", "true", "yes"}
+
+
 def max_pages() -> int | None:
     raw = os.environ.get("SCRAPE_MAX_PAGES")
-    return int(raw) if raw else None
+    if raw:
+        return int(raw)
+    return _forced_max_pages.get()
+
+
+def use_max_pages(cap: int | None) -> Token[int | None]:
+    return _forced_max_pages.set(cap)
+
+
+def reset_max_pages(token: Token[int | None]) -> None:
+    _forced_max_pages.reset(token)
 
 
 def http_client() -> httpx.Client:

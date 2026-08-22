@@ -25,8 +25,11 @@ def verbose_enabled() -> bool:
     return logger.isEnabledFor(logging.DEBUG)
 
 
-def source_start(source: str) -> None:
-    logger.info("[%s] starting scrape", source)
+def source_start(source: str, *, pages: int | None = None) -> None:
+    if pages:
+        logger.info("[%s] starting scrape — first %s pages", source, pages)
+    else:
+        logger.info("[%s] starting scrape", source)
 
 
 def page(source: str, page: int, total: int, count: int) -> None:

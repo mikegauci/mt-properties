@@ -22,7 +22,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SCRAPE_DELAY_SECONDS: "0.5"
-        run: python -m mtprop agencies
+        run: |
+          if [ "$(date -u +%u)" = "7" ]; then
+            export SCRAPE_FULL=1
+          fi
+          python -m mtprop agencies
       - name: Revalidate app cache
         if: success()
         env:

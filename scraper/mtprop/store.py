@@ -67,6 +67,44 @@ class NormalizedListing(dict):
 OPTIONAL_KEYS = ("ext_sqm", "finish", "has_garage", "has_pool", "has_lift")
 
 
+MIN_ACTIVE_FOR_INCREMENTAL = 200
+
+
+def source_ready_for_incremental(source: str) -> bool:
+    with client() as http:
+        runs = http.get(
+            "/scrape_runs",
+            params={
+                "source": f"eq.{source}",
+                "status": "eq.ok",
+                "select": "id",
+                "limit": "1",
+            },
+        )
+        if runs.status_code >= 300:
+            raise RuntimeError(f"Scrape run lookup failed: {runs.status_code} {runs.text}")
+        if not runs.json():
+            return False
+        listings = http.get(
+            "/listings",
+            params={"source": f"eq.{source}", "is_active": "eq.true", "select": "id"},
+            headers={"range": "0-0", "prefer": "count=exact"},
+        )
+        if listings.status_code >= 300:
+            raise RuntimeError(
+                f"Listing count failed: {listings.status_code} {listings.text}"
+            )
+        return _exact_count(listings) >= MIN_ACTIVE_FOR_INCREMENTAL
+
+
+def _exact_count(response) -> int:
+    header = response.headers.get("content-range") or ""
+    if "/" not in header:
+        return 0
+    total = header.rsplit("/", 1)[-1]
+    return int(total) if total.isdigit() else 0
+
+
 def start_run(source: str) -> str:
     with client() as http:
         response = http.post("/scrape_runs", json={"source": source, "status": "running"})
