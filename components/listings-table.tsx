@@ -88,6 +88,7 @@ export function ListingsTable({
   const [localityId, setLocalityId] = useState("");
   const [area, setArea] = useState("");
   const [propertyType, setPropertyType] = useState<string>("all");
+  const [excludePropertyType, setExcludePropertyType] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("last_seen");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
@@ -171,12 +172,18 @@ export function ListingsTable({
       if (localityId && row.locality_id !== localityId) return false;
       if (activeArea && !listingMatchesArea(row, activeArea)) return false;
       if (propertyType !== "all" && canonicalPropertyType(row.property_type) !== propertyType) return false;
+      if (
+        excludePropertyType &&
+        canonicalPropertyType(row.property_type) === excludePropertyType
+      ) {
+        return false;
+      }
       if (tokens.length && !tokens.every((token) => listingHaystack(row, localityById).includes(token))) {
         return false;
       }
       return true;
     });
-  }, [uniqueListings, source, localityId, activeArea, propertyType, tokens, localityById]);
+  }, [uniqueListings, source, localityId, activeArea, propertyType, excludePropertyType, tokens, localityById]);
 
   const sorted = useMemo(() => {
     const rows = [...filtered];
@@ -213,6 +220,13 @@ export function ListingsTable({
 
   function applyType(value: string) {
     setPropertyType(value || "all");
+    if (value && value === excludePropertyType) setExcludePropertyType("");
+    setPage(1);
+  }
+
+  function applyExcludeType(value: string) {
+    setExcludePropertyType(value);
+    if (value && propertyType === value) setPropertyType("all");
     setPage(1);
   }
 
@@ -222,11 +236,17 @@ export function ListingsTable({
     setLocalityId("");
     setArea("");
     setPropertyType("all");
+    setExcludePropertyType("");
     setPage(1);
   }
 
   const filtersActive = Boolean(
-    query.trim() || source !== "all" || localityId || activeArea || propertyType !== "all",
+    query.trim() ||
+      source !== "all" ||
+      localityId ||
+      activeArea ||
+      propertyType !== "all" ||
+      excludePropertyType,
   );
 
   const localityOptions = localityGroups.flatMap((group) =>
@@ -332,6 +352,30 @@ export function ListingsTable({
           })}
         </div>
 
+        {propertyTypes.length ? (
+          <div className="flex flex-wrap gap-1.5 md:hidden">
+            <span className="text-muted-foreground self-center text-xs font-medium">Exclude</span>
+            {propertyTypes.map((value) => {
+              const active = excludePropertyType === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => applyExcludeType(active ? "" : value)}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                    active
+                      ? "bg-rose-600 text-white"
+                      : "bg-background text-muted-foreground ring-1 ring-inset ring-border hover:bg-muted",
+                  )}
+                >
+                  {typeLabel(value)}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
         <div className="hidden flex-wrap items-end gap-3 md:flex">
           <label className="grid gap-1 text-xs font-medium text-sky-900/70">
             Locality
@@ -366,6 +410,19 @@ export function ListingsTable({
                 options={typeOptions}
                 placeholder="Type a property type"
                 emptyLabel="All types"
+                className="w-[14rem]"
+              />
+            </label>
+          ) : null}
+          {propertyTypes.length ? (
+            <label className="grid gap-1 text-xs font-medium text-sky-900/70">
+              Exclude type
+              <FilterCombobox
+                value={excludePropertyType}
+                onChange={applyExcludeType}
+                options={typeOptions}
+                placeholder="Type a property type"
+                emptyLabel="None"
                 className="w-[14rem]"
               />
             </label>
