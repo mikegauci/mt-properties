@@ -1,31 +1,30 @@
 import { NextResponse } from "next/server";
-import { getActiveListings, getLocalities } from "@/lib/data";
+import { getActiveListingsPage, getLocalities } from "@/lib/data";
+import { toFilterLocality, toListingPreviews } from "@/lib/listing-preview";
 import { supabaseConfigured } from "@/lib/supabase/server";
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!supabaseConfigured()) {
-    return NextResponse.json({ listings: [], localities: [] });
+    return NextResponse.json({ listings: [], localities: [], page: 1, pageSize: 0, total: 0, hasMore: false });
   }
 
-  const [listings, localities] = await Promise.all([getActiveListings(), getLocalities()]);
-  const localityById = new Map(localities.map((row) => [row.id, row]));
-  const previews = listings.map((listing) => {
-    const locality = listing.locality_id ? localityById.get(listing.locality_id) : undefined;
-    return {
-      ...listing,
-      localityName: locality?.name_en ?? null,
-      localitySlug: locality?.slug ?? null,
-    };
-  });
+  const url = new URL(request.url);
+  const page = Number(url.searchParams.get("page") ?? "1");
+  const pageSize = Number(url.searchParams.get("pageSize") ?? "2000");
+  const localityId = url.searchParams.get("localityId") ?? undefined;
+  const source = url.searchParams.get("source") ?? undefined;
+
+  const [result, localities] = await Promise.all([
+    getActiveListingsPage({ page, pageSize, localityId, source }),
+    getLocalities(),
+  ]);
 
   return NextResponse.json({
-    listings: previews,
-    localities: localities.map((row) => ({
-      id: row.id,
-      slug: row.slug,
-      name: row.name_en,
-      district: row.district,
-      island: row.island,
-    })),
+    listings: toListingPreviews(result.listings, localities),
+    localities: page <= 1 ? localities.map(toFilterLocality) : undefined,
+    page: result.page,
+    pageSize: result.pageSize,
+    total: result.total,
+    hasMore: result.hasMore,
   });
 }

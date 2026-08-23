@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { z } from "zod";
+import { rateLimit } from "@/lib/api-auth";
 
 const bodySchema = z.object({
   locality: z.string(),
@@ -43,6 +44,9 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const limited = rateLimit(request, "explain", 10, 60_000);
+  if (limited) return limited;
+
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json(
       { error: "OPENAI_API_KEY is not set. The estimate still comes from comps, not from GPT." },
@@ -55,24 +59,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    temperature: 0.3,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You explain a Malta property comps valuation in 2-4 short sentences. Never invent a different price. Use only the numbers given. Mention sample size, whether the search was widened to the district, and which optional filters (street, external area, finish, garage, pool, lift, bedrooms) were actually applied.",
-      },
-      {
-        role: "user",
-        content: JSON.stringify(parsed.data),
-      },
-    ],
-  });
+  try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.3,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You explain a Malta property comps valuation in 2-4 short sentences. Never invent a different price. Use only the numbers given. Mention sample size, whether the search was widened to the district, and which optional filters (street, external area, finish, garage, pool, lift, bedrooms) were actually applied.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify(parsed.data),
+        },
+      ],
+    });
 
-  return NextResponse.json({
-    explanation: completion.choices[0]?.message?.content ?? "",
-  });
+    return NextResponse.json({
+      explanation: completion.choices[0]?.message?.content ?? "",
+    });
+  } catch {
+    return NextResponse.json({ error: "Could not generate explanation" }, { status: 502 });
+  }
 }

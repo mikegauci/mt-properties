@@ -1,3 +1,6 @@
+import propertyTypeConfig from "@/data/property-types.json";
+import { PROPERTY_TYPES, type PropertyType } from "@/lib/types-core";
+
 export type Locality = {
   id: string;
   slug: string;
@@ -62,40 +65,36 @@ export type ScrapeRun = {
   status: "running" | "ok" | "error";
 };
 
-export const PROPERTY_TYPES = [
-  "apartment",
-  "maisonette",
-  "penthouse",
-  "terraced_house",
-  "townhouse",
-  "villa",
-  "house_of_character",
-  "farmhouse",
-  "bungalow",
-  "palazzo",
-] as const;
+const skipPattern = new RegExp(
+  propertyTypeConfig.skipTypes.map((value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
+  "i",
+);
 
-export type PropertyType = (typeof PROPERTY_TYPES)[number];
-
-const SKIP_TYPE = /garage|car_space|land|airspace|plot|office|shop|warehouse|commercial/;
+const aliasMap = new Map(
+  Object.entries(propertyTypeConfig.aliases).map(([key, value]) => [
+    key.toLowerCase().replaceAll(" ", "_"),
+    value,
+  ]),
+);
 
 export function canonicalPropertyType(raw: string | null | undefined): PropertyType | null {
   if (!raw) return null;
-  const key = raw.toLowerCase().replaceAll(" ", "_");
-  if (SKIP_TYPE.test(key)) return null;
-  if (key === "studio_flat" || key.startsWith("apartment")) return "apartment";
-  if (key.startsWith("maisonette")) return "maisonette";
-  if (key.startsWith("penthouse")) return "penthouse";
-  if (key.startsWith("villa")) return "villa";
-  if (key.startsWith("bungalow")) return "bungalow";
-  if (key.startsWith("palazz")) return "palazzo";
-  if (key.startsWith("townhouse") || key === "town_house") return "townhouse";
-  if (key.startsWith("terraced")) return "terraced_house";
-  if (key.includes("character")) return "house_of_character";
-  if (key.startsWith("farmhouse")) return "farmhouse";
-  if ((PROPERTY_TYPES as readonly string[]).includes(key)) return key as PropertyType;
+  const spaced = raw.toLowerCase().trim();
+  const underscored = spaced.replaceAll(" ", "_");
+  if (skipPattern.test(spaced) || skipPattern.test(underscored)) return null;
+  const aliased = aliasMap.get(underscored);
+  if (aliased && (PROPERTY_TYPES as readonly string[]).includes(aliased)) {
+    return aliased as PropertyType;
+  }
+  for (const rule of propertyTypeConfig.prefixRules) {
+    if (underscored.startsWith(rule.prefix)) return rule.type as PropertyType;
+  }
+  if (underscored.includes("character")) return "house_of_character";
+  if ((PROPERTY_TYPES as readonly string[]).includes(underscored)) return underscored as PropertyType;
   return null;
 }
+
+export { PROPERTY_TYPES, type PropertyType } from "@/lib/types-core";
 
 export type TypeAsking = {
   type: PropertyType;

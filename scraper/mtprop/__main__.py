@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
 import traceback
 
 from . import nso
@@ -99,6 +100,7 @@ def run_agency(source: str, *, full: bool = False) -> bool:
         cap_token = use_max_pages(INCREMENTAL_PAGES)
         incremental = True
     try:
+        started = time.monotonic()
         run_id = start_run(source)
         log.source_start(source, pages=INCREMENTAL_PAGES if incremental else None)
         if source != "facebook" and missing_image_rows(source):
@@ -125,7 +127,15 @@ def run_agency(source: str, *, full: bool = False) -> bool:
                 inactivate_missing = not partial
             inactivated = sink.finalize(inactivate_missing=inactivate_missing)
             finish_run(run_id, upserted=sink.upserted, inactivated=inactivated)
-            log.source_done(source, scraped, sink.upserted, inactivated, sink.duplicates, sink.skipped)
+            log.source_done(
+                source,
+                scraped,
+                sink.upserted,
+                inactivated,
+                sink.duplicates,
+                sink.skipped,
+                duration_seconds=time.monotonic() - started,
+            )
             return False
         except Exception as exc:
             traceback.print_exc()

@@ -54,14 +54,11 @@ export async function getCachedLocalityTransactions(localityId: string) {
   return data.getLocalityTransactions(localityId);
 }
 
-export async function getCachedPeriodSnapshots(localityId: string, days: number) {
+export async function getCachedPeriodCompare(localityId: string, days: number) {
   "use cache";
   cacheTag("listings");
   cacheLife("listings");
-  const now = Date.now();
-  const currentFrom = new Date(now - days * 86400000).toISOString();
-  const previousFrom = new Date(now - days * 2 * 86400000).toISOString();
-  return data.getPeriodSnapshots(localityId, previousFrom, currentFrom);
+  return data.getPeriodCompareSnapshots(localityId, days);
 }
 
 export async function getCachedLatestScrapeRuns() {
@@ -83,4 +80,11 @@ export async function getCachedActiveListingStats() {
   cacheTag("listings");
   cacheLife("listings");
   return data.getActiveListingStats();
+}
+
+export async function getCachedAskingListingsForCompare() {
+  "use cache";
+  cacheTag("listings");
+  cacheLife("listings");
+  return data.getAskingListingsForCompare();
 }

@@ -90,7 +90,23 @@ def source_done(
     inactivated: int,
     duplicates: int = 0,
     skipped: int = 0,
+    *,
+    duration_seconds: float | None = None,
 ) -> None:
+    rate = scraped / duration_seconds if duration_seconds and duration_seconds > 0 else None
+    if duration_seconds is not None and rate is not None:
+        logger.info(
+            "[%s] done — %s scraped, %s upserted, %s already present, %s inactivated, %s duplicates removed in %.1fs (%.1f listings/s)",
+            source,
+            scraped,
+            upserted,
+            skipped,
+            inactivated,
+            duplicates,
+            duration_seconds,
+            rate,
+        )
+        return
     logger.info(
         "[%s] done — %s scraped, %s upserted, %s already present, %s inactivated, %s duplicates removed",
         source,

@@ -13,12 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { askingStats } from "@/lib/data";
+import { snapshotStats } from "@/lib/data";
 import {
   getCachedActiveListings,
   getCachedLocality,
   getCachedLocalityTransactions,
-  getCachedPeriodSnapshots,
+  getCachedPeriodCompare,
 } from "@/lib/cached-data";
 import { compactNumber, displayTypeLabel, eur } from "@/lib/format";
 
@@ -36,38 +36,16 @@ export default async function LocalityPage({
 
   const days = [30, 90, 180].includes(Number(daysParam)) ? Number(daysParam) : 90;
 
-  const [transactions, listings, previousSnaps] = await Promise.all([
+  const [transactions, listings, periodCompare] = await Promise.all([
     getCachedLocalityTransactions(locality.id),
     getCachedActiveListings({ localityId: locality.id }),
-    getCachedPeriodSnapshots(locality.id, days),
+    getCachedPeriodCompare(locality.id, days),
   ]);
 
-  const current = askingStats(listings);
-  const previous = askingStats(
-    previousSnaps.map((row, index) => ({
-      id: String(index),
-      source: "",
-      external_id: "",
-      url: "",
-      locality_id: locality.id,
-      street: null,
-      area: null,
-      property_type: null,
-      beds: null,
-      sqm: row.sqm,
-      ext_sqm: null,
-      price: row.price,
-      title: null,
-      image_url: null,
-      finish: null,
-      has_garage: null,
-      has_pool: null,
-      has_lift: null,
-      first_seen: "",
-      last_seen: "",
-      is_active: false,
-      fingerprint: null,
-    })),
+  const current = snapshotStats(periodCompare.current);
+  const previous = snapshotStats(periodCompare.previous);
+  const live = snapshotStats(
+    listings.map((row) => ({ price: row.price ?? 0, sqm: row.sqm })),
   );
 
   const deedRow = transactions.at(-1);
@@ -91,14 +69,14 @@ export default async function LocalityPage({
           hint="Counts only. NSO does not publish declared values by locality."
         />
         <KpiCard
-          label="Median asking"
-          value={eur(current.medianPrice)}
-          hint={`${current.sample} active listings`}
+          label="Median asking (live)"
+          value={eur(live.medianPrice)}
+          hint={`${live.sample} active listings today`}
         />
         <KpiCard
-          label="Median asking €/m²"
-          value={eur(current.medianPerSqm)}
-          hint={current.sample < 8 ? "Low sample — treat as directional." : "Active listings with floor area"}
+          label="Median asking €/m² (live)"
+          value={eur(live.medianPerSqm)}
+          hint={live.sample < 8 ? "Low sample — treat as directional." : "Active listings with floor area"}
         />
       </section>
 
@@ -113,7 +91,7 @@ export default async function LocalityPage({
       <PeriodCompare
         current={current}
         previous={previous}
-        windowLabel={`last ${days} days vs previous ${days} days`}
+        windowLabel={`last ${days} days vs previous ${days} days (price snapshots)`}
       />
 
       <Card>

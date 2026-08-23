@@ -1,3 +1,4 @@
+import areaFoldConfig from "@/data/area-fold.json";
 import catalog from "@/data/localities.json";
 
 type CatalogRow = {
@@ -17,7 +18,7 @@ export function foldArea(value: string): string {
   return ascii
     .split(/\s+/)
     .filter(Boolean)
-    .map((word) => (word === "marija" ? "maria" : word === "estates" ? "estate" : word))
+    .map((word) => areaFoldConfig.wordReplacements[word as keyof typeof areaFoldConfig.wordReplacements] ?? word)
     .join(" ");
 }
 

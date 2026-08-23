@@ -1,4 +1,3 @@
-import { askingStats } from "@/lib/data";
 import { median, percentile } from "@/lib/format";
 import type { CompsMatchFlags, ListingRow } from "@/lib/types";
 
@@ -39,8 +38,4 @@ export function valueFromComps(
     comps: withSqm.slice(0, 20),
     ...flags,
   };
-}
-
-export function nationalAskingStats(listings: ListingRow[]) {
-  return askingStats(listings);
 }

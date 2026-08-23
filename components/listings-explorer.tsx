@@ -7,6 +7,28 @@ import {
   type ListingPreview,
 } from "@/components/listings-table";
 
+type ListingsPage = {
+  listings: ListingPreview[];
+  localities?: FilterLocality[];
+  hasMore: boolean;
+};
+
+async function fetchAllListings(): Promise<{ listings: ListingPreview[]; localities: FilterLocality[] }> {
+  let page = 1;
+  let listings: ListingPreview[] = [];
+  let localities: FilterLocality[] = [];
+  while (true) {
+    const response = await fetch(`/api/listings?page=${page}&pageSize=2000`);
+    if (!response.ok) throw new Error("Could not load listings");
+    const data = (await response.json()) as ListingsPage;
+    if (page === 1 && data.localities) localities = data.localities;
+    listings = listings.concat(data.listings);
+    if (!data.hasMore) break;
+    page += 1;
+  }
+  return { listings, localities };
+}
+
 export function ListingsExplorer() {
   const [listings, setListings] = useState<ListingPreview[] | null>(null);
   const [localities, setLocalities] = useState<FilterLocality[] | null>(null);
@@ -14,11 +36,7 @@ export function ListingsExplorer() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/listings")
-      .then((response) => {
-        if (!response.ok) throw new Error("Could not load listings");
-        return response.json() as Promise<{ listings: ListingPreview[]; localities: FilterLocality[] }>;
-      })
+    fetchAllListings()
       .then((data) => {
         if (cancelled) return;
         setListings(data.listings);

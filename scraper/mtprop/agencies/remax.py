@@ -3,7 +3,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Iterator
 
-from .http import http_client, page_limit, remax_detail_workers, sleep
+from .http import http_client, page_limit, remax_detail_workers, scrape_page_workers, sleep
 from .. import log
 from ..features import amenities_from_remax_detail, garage_from_remax
 from ..images import absolute
@@ -12,31 +12,40 @@ from ..store import listings_already_detailed
 SOURCE = "remax"
 BASE = "https://remax-malta.com/api/properties"
 SITE = "https://remax-malta.com/listings"
+LIST_PARAMS = {"ForSale": "true", "Residential": "true"}
 
 
 def fetch() -> Iterator[dict]:
     take = 100
-    listings: list[dict] = []
     with http_client() as http:
-        first = http.get(BASE, params={"ForSale": "true", "Residential": "true", "Take": take, "page": 1})
+        first = http.get(BASE, params={**LIST_PARAMS, "Take": take, "page": 1})
         first.raise_for_status()
         payload = first.json().get("data") or {}
         total = int(payload.get("TotalSearchResults") or 0)
         total_pages = max(1, (total + take - 1) // take)
         capped = page_limit(total_pages)
-        items = list(_parse_page(payload.get("Properties") or []))
-        log.page(SOURCE, 1, capped, len(items))
-        listings.extend(items)
-        for page in range(2, capped + 1):
-            sleep()
-            response = http.get(
-                BASE,
-                params={"ForSale": "true", "Residential": "true", "Take": take, "page": page},
-            )
-            response.raise_for_status()
-            items = list(_parse_page((response.json().get("data") or {}).get("Properties") or []))
-            log.page(SOURCE, page, capped, len(items))
-            listings.extend(items)
+        listings = list(_parse_page(payload.get("Properties") or []))
+        log.page(SOURCE, 1, capped, len(listings))
+
+        remaining = list(range(2, capped + 1))
+        if remaining:
+            workers = scrape_page_workers()
+
+            def fetch_list_page(page: int) -> list[dict]:
+                sleep()
+                with http_client() as client:
+                    response = client.get(BASE, params={**LIST_PARAMS, "Take": take, "page": page})
+                    response.raise_for_status()
+                    properties = (response.json().get("data") or {}).get("Properties") or []
+                    return list(_parse_page(properties))
+
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures = {pool.submit(fetch_list_page, page): page for page in remaining}
+                for future in as_completed(futures):
+                    page = futures[future]
+                    items = future.result()
+                    log.page(SOURCE, page, capped, len(items))
+                    listings.extend(items)
     yield from _enrich_details(listings)
 
 

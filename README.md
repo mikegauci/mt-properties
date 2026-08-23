@@ -155,7 +155,7 @@ In `.env`:
 - `APIFY_FB_MAX_PAGES` — cap Apify search pages (profile defaults: 50 weekly, 5 daily)
 - `APIFY_FB_DAYS_LISTED` — Facebook date filter in days (profile defaults: 30 weekly, 7 daily)
 
-Daily GitHub runs scrape Remax, Property Market, and Zanzi in parallel (first 5 pages once a source already has a full scrape). Sundays run a full pass so dropped listings can be inactivated. Facebook is not run in CI — use `npm run scrape:facebook` locally when needed.
+Daily GitHub runs scrape Remax, Property Market, and Zanzi in parallel (first 5 pages once a source already has a full scrape). Sundays run a full pass so dropped listings can be inactivated. Facebook is not run in CI — use `npm run scrape:facebook` or `npm run scrape:facebook:weekly` locally when needed.
 
 ## Daily updates
 

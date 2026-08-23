@@ -8,56 +8,25 @@ from typing import Any
 
 from .config import DATA_DIR, client
 
-SKIP_TYPES = {
-    "garage",
-    "parking",
-    "plot",
-    "site",
-    "airspace",
-    "commercial",
-    "office",
-    "shop",
-    "warehouse",
-    "land",
-    "garage/parking facilities",
-    "garage/parking space",
-    "block of apartments",
-}
+
+@lru_cache(maxsize=1)
+def property_type_config() -> dict[str, Any]:
+    return json.loads((DATA_DIR / "property-types.json").read_text())
 
 
-TYPE_ALIASES = {
-    "apartment": "apartment",
-    "apartments": "apartment",
-    "flat": "apartment",
-    "studio apartment": "apartment",
-    "studio apartments": "apartment",
-    "corner apartment": "apartment",
-    "maisonette": "maisonette",
-    "maisonettes": "maisonette",
-    "solitary maisonette": "maisonette",
-    "penthouse": "penthouse",
-    "penthouses": "penthouse",
-    "corner penthouse": "penthouse",
-    "terraced house": "terraced_house",
-    "terraced houses": "terraced_house",
-    "townhouse": "townhouse",
-    "town house": "townhouse",
-    "townhouses": "townhouse",
-    "villa": "villa",
-    "villas": "villa",
-    "semi detached villa": "villa",
-    "detached villa": "villa",
-    "house of character": "house_of_character",
-    "house-of-character": "house_of_character",
-    "farmhouse": "farmhouse",
-    "farmhouses": "farmhouse",
-    "bungalow": "bungalow",
-    "bungalows": "bungalow",
-    "palazzo": "palazzo",
-    "manor/palace/castle": "palazzo",
-    "palace/castle/manor": "palazzo",
-    "house": "terraced_house",
-}
+@lru_cache(maxsize=1)
+def area_fold_config() -> dict[str, Any]:
+    return json.loads((DATA_DIR / "area-fold.json").read_text())
+
+
+@lru_cache(maxsize=1)
+def type_alias_map() -> dict[str, str]:
+    return {fold(key): value for key, value in property_type_config().get("aliases", {}).items()}
+
+
+@lru_cache(maxsize=1)
+def type_skip_set() -> set[str]:
+    return {fold(item) for item in property_type_config().get("skipTypes", [])}
 
 
 def fold(value: str) -> str:
@@ -74,13 +43,10 @@ def fold_loose(value: str) -> str:
 
 
 def fold_area(value: str) -> str:
+    replacements = area_fold_config().get("wordReplacements", {})
     words: list[str] = []
     for word in fold_loose(value).split():
-        if word == "marija":
-            word = "maria"
-        elif word == "estates":
-            word = "estate"
-        words.append(word)
+        words.append(replacements.get(word, word))
     return " ".join(words)
 
 
@@ -176,9 +142,18 @@ def normalize_type(raw: str | None) -> str | None:
     if not raw:
         return None
     key = fold(raw)
-    if key in SKIP_TYPES:
+    if key in type_skip_set():
         return None
-    return TYPE_ALIASES.get(key, key.replace(" ", "_"))
+    aliases = type_alias_map()
+    if key in aliases:
+        return aliases[key]
+    underscored = key.replace(" ", "_")
+    for rule in property_type_config().get("prefixRules", []):
+        if underscored.startswith(rule["prefix"]):
+            return rule["type"]
+    if "character" in underscored:
+        return "house_of_character"
+    return underscored
 
 
 def fingerprint(locality_slug: str | None, property_type: str | None, sqm: float | None, street: str | None) -> str | None:

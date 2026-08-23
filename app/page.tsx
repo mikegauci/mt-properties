@@ -4,9 +4,9 @@ import { PriceIndexChart } from "@/components/price-index-chart";
 import { SetupBanner } from "@/components/setup-banner";
 import { YearCompare } from "@/components/year-compare";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { askingStats } from "@/lib/data";
 import {
-  getCachedActiveListings,
+  getCachedActiveListingStats,
+  getCachedAskingListingsForCompare,
   getCachedLocalityDeedTable,
   getCachedNationalTransactions,
   getCachedPriceIndex,
@@ -17,32 +17,26 @@ import { supabaseConfigured } from "@/lib/supabase/server";
 
 export default async function HomePage() {
   const configured = supabaseConfigured();
-  const [index, national, localityDeeds, listings] = configured
+  const [index, national, localityDeeds, { stats: asking }, askingListings] = configured
     ? await Promise.all([
         getCachedPriceIndex(),
         getCachedNationalTransactions(),
         getCachedLocalityDeedTable(),
-        getCachedActiveListings(),
+        getCachedActiveListingStats(),
+        getCachedAskingListingsForCompare(),
       ])
-    : [[], [], [], []];
+    : [[], [], [], { stats: { sample: 0, medianPrice: null, medianPerSqm: null, p25PerSqm: null, p75PerSqm: null } }, []];
 
   const latestIndex = [...index].at(-1);
   const latestYear = [...national].filter((row) => row.period_type === "year").at(-1);
   const nationalAvg =
     latestYear?.deeds && latestYear.total_value ? latestYear.total_value / latestYear.deeds : null;
-  const asking = askingStats(listings);
   const gap =
     asking.medianPrice && nationalAvg ? ((asking.medianPrice - nationalAvg) / nationalAvg) * 100 : null;
   const askingGapEur =
     asking.medianPrice != null && nationalAvg != null ? asking.medianPrice - nationalAvg : null;
   const indexByYear = buildAnnualIndex(index);
   const declaredByYear = buildDeclaredByYear(national);
-  const askingListings = listings.map((row) => ({
-    localityId: row.locality_id,
-    propertyType: row.property_type,
-    price: row.price,
-    area: row.area,
-  }));
   const listingLocalityIds = new Set(
     askingListings.map((row) => row.localityId).filter((id): id is string => Boolean(id)),
   );
