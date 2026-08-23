@@ -1,3 +1,5 @@
+import { canonicalPropertyType } from "@/lib/types";
+
 export function eur(value: number | null | undefined, digits = 0) {
   if (value == null || Number.isNaN(value)) return "—";
   return new Intl.NumberFormat("en-MT", {
@@ -29,6 +31,16 @@ export function eurDelta(value: number | null | undefined) {
 export function typeLabel(value: string | null | undefined) {
   if (!value) return "Unknown";
   return value.replaceAll("_", " ");
+}
+
+export function displayTypeLabel(value: string | null | undefined) {
+  const canonical = canonicalPropertyType(value);
+  if (canonical) return typeLabel(canonical);
+  const label = typeLabel(value);
+  if (!value || label === "Unknown") return null;
+  const words = label.split(/\s+/).filter(Boolean);
+  if (words.length > 4 || label.length > 40) return null;
+  return label;
 }
 
 export function periodLabel(isoDate: string, periodType?: string) {

@@ -28,6 +28,20 @@ jobs:
             export SCRAPE_FULL=1
           fi
           python -m mtprop agencies
+      - name: Facebook Marketplace
+        working-directory: scraper
+        env:
+          PYTHONPATH: .
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
+        run: |
+          if [ "$(date -u +%u)" = "7" ]; then
+            export APIFY_FB_PROFILE=weekly
+          else
+            export APIFY_FB_PROFILE=daily-north
+          fi
+          python -m mtprop agencies --source facebook
       - name: Revalidate app cache
         if: success()
         env:

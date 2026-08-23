@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from dataclasses import dataclass
 from typing import Any, Iterator
 
 from .. import log
@@ -12,10 +13,7 @@ from ..store import parse_int, parse_number
 
 SOURCE = "facebook"
 DEFAULT_ACTOR = "curious_coder/facebook-marketplace"
-DEFAULT_URL = (
-    "https://www.facebook.com/marketplace/110612325626836/propertyforsale/"
-    "?sortBy=creation_time_descend&daysSinceListed=30"
-)
+MALTA_WEEKLY_LOCATION = "110612325626836"
 RENTAL = re.compile(r"\bfor rent\b|\bto let\b|\brental\b|\blong let\b", re.I)
 ITEM_ID = re.compile(r"/marketplace/item/(\d+)")
 BEDS = re.compile(r"(\d+)\s*(?:bed(?:room)?s?|br)\b", re.I)
@@ -33,6 +31,75 @@ PROPERTY_TYPES = [
     "Bungalow",
     "Palazzo",
 ]
+VALID_PROPERTY_TYPES = {
+    "apartment",
+    "maisonette",
+    "penthouse",
+    "terraced_house",
+    "townhouse",
+    "villa",
+    "house_of_character",
+    "farmhouse",
+    "bungalow",
+    "palazzo",
+}
+NORTH_LOCALITY_SLUGS = {"mellieha", "st-pauls-bay"}
+
+
+@dataclass(frozen=True)
+class FacebookProfile:
+    name: str
+    urls: tuple[str, ...]
+    max_pages: int
+    days_listed: str
+    partial: bool
+    locality_slugs: frozenset[str] | None = None
+
+
+def _property_url(location: str, days: str) -> str:
+    return (
+        f"https://www.facebook.com/marketplace/{location}/propertyforsale/"
+        f"?sortBy=creation_time_descend&daysSinceListed={days}"
+    )
+
+
+PROFILES: dict[str, FacebookProfile] = {
+    "weekly": FacebookProfile(
+        name="weekly",
+        urls=(_property_url(MALTA_WEEKLY_LOCATION, "30"),),
+        max_pages=50,
+        days_listed="30",
+        partial=False,
+    ),
+    "daily-north": FacebookProfile(
+        name="daily-north",
+        urls=(
+            _property_url("mellieha", "7"),
+            _property_url("stpaulsbay", "7"),
+        ),
+        max_pages=5,
+        days_listed="7",
+        partial=True,
+        locality_slugs=frozenset(NORTH_LOCALITY_SLUGS),
+    ),
+}
+
+
+def resolve_profile() -> FacebookProfile:
+    name = os.environ.get("APIFY_FB_PROFILE", "weekly").strip().lower()
+    if name in PROFILES:
+        return PROFILES[name]
+    raise RuntimeError(f"Unknown APIFY_FB_PROFILE {name!r}; expected one of {sorted(PROFILES)}")
+
+
+def run_options() -> tuple[FacebookProfile, bool]:
+    profile = resolve_profile()
+    partial = profile.partial
+    if os.environ.get("APIFY_FB_PARTIAL", "").lower() in {"1", "true", "yes"}:
+        partial = True
+    if os.environ.get("APIFY_FB_PARTIAL", "").lower() in {"0", "false", "no"}:
+        partial = False
+    return profile, partial
 
 
 def fetch() -> Iterator[dict]:
@@ -42,13 +109,14 @@ def fetch() -> Iterator[dict]:
     if not token:
         raise RuntimeError("Missing APIFY_API_TOKEN")
 
+    profile, _partial = run_options()
     actor_id = os.environ.get("APIFY_FB_ACTOR_ID", DEFAULT_ACTOR)
-    max_pages = int(os.environ.get("APIFY_FB_MAX_PAGES", "50"))
-    days = os.environ.get("APIFY_FB_DAYS_LISTED", "30")
-    url = os.environ.get("APIFY_FB_URL") or _default_url(days)
+    max_pages = int(os.environ.get("APIFY_FB_MAX_PAGES", str(profile.max_pages)))
+    days = os.environ.get("APIFY_FB_DAYS_LISTED", profile.days_listed)
+    urls = _resolve_urls(profile, days)
 
     run_input = {
-        "urls": [url],
+        "urls": urls,
         "getListingDetails": True,
         "getAllListingPhotos": False,
         "strictFiltering": True,
@@ -57,14 +125,22 @@ def fetch() -> Iterator[dict]:
     }
 
     client = ApifyClient(token)
-    logging.getLogger("mtprop").info("[%s] starting Apify actor %s", SOURCE, actor_id)
+    logging.getLogger("mtprop").info(
+        "[%s] profile=%s Apify actor %s (%s urls, max_pages=%s, days=%s)",
+        SOURCE,
+        profile.name,
+        actor_id,
+        len(urls),
+        max_pages,
+        days,
+    )
     run = client.actor(actor_id).call(run_input=run_input)
     dataset_id = run["defaultDatasetId"]
     kept = 0
     total = 0
     for item in client.dataset(dataset_id).iterate_items():
         total += 1
-        listing = _normalize(item)
+        listing = _normalize(item, locality_slugs=profile.locality_slugs)
         if listing:
             kept += 1
             yield listing
@@ -74,9 +150,22 @@ def fetch() -> Iterator[dict]:
     )
 
 
+def _resolve_urls(profile: FacebookProfile, days: str) -> list[str]:
+    override = os.environ.get("APIFY_FB_URL")
+    if override:
+        return [override]
+    extra = os.environ.get("APIFY_FB_URLS")
+    if extra:
+        return [part.strip() for part in extra.split(",") if part.strip()]
+    if days != profile.days_listed:
+        return [_property_url(url.split("/marketplace/")[1].split("/")[0], days) for url in profile.urls]
+    return list(profile.urls)
+
+
 def ingest_items(items: Iterable[dict[str, Any]]) -> dict[str, int]:
     from ..store import FLUSH_SIZE, ListingSink, finish_run, start_run
 
+    _, partial = run_options()
     run_id = start_run(SOURCE)
     sink = ListingSink(SOURCE)
     scraped = 0
@@ -93,7 +182,7 @@ def ingest_items(items: Iterable[dict[str, Any]]) -> dict[str, int]:
                 batch = []
         if batch:
             sink.write(batch)
-        inactivated = sink.finalize()
+        inactivated = sink.finalize(inactivate_missing=not partial)
         finish_run(run_id, upserted=sink.upserted, inactivated=inactivated)
         return {
             "scraped": scraped,
@@ -107,12 +196,11 @@ def ingest_items(items: Iterable[dict[str, Any]]) -> dict[str, int]:
         raise exc
 
 
-def _default_url(days: str) -> str:
-    base = DEFAULT_URL.split("daysSinceListed=")[0]
-    return f"{base}daysSinceListed={days}"
-
-
-def _normalize(item: dict[str, Any]) -> dict[str, Any] | None:
+def _normalize(
+    item: dict[str, Any],
+    *,
+    locality_slugs: frozenset[str] | None = None,
+) -> dict[str, Any] | None:
     if item.get("is_sold") or item.get("isSold"):
         return None
     if item.get("is_pending") or item.get("isPending"):
@@ -134,6 +222,9 @@ def _normalize(item: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
     locality_name = _locality(item, blob)
+    if locality_slugs and not _locality_in_slugs(locality_name, blob, locality_slugs):
+        return None
+
     property_type = _property_type(item, blob)
     beds = _beds(item, blob)
     sqm = _sqm(item, blob)
@@ -154,6 +245,21 @@ def _normalize(item: dict[str, Any]) -> dict[str, Any] | None:
         "raw": item,
         **amenities,
     }
+
+
+def _locality_in_slugs(
+    locality_name: str | None,
+    blob: str,
+    slugs: frozenset[str],
+) -> bool:
+    from ..localities import match_locality
+
+    if locality_name:
+        slug = match_locality(locality_name)
+        if slug in slugs:
+            return True
+    blob_slug = match_locality(blob)
+    return blob_slug in slugs if blob_slug else False
 
 
 def _external_id(item: dict[str, Any]) -> str | None:
@@ -297,19 +403,18 @@ def _match_locality_name(text: str) -> str | None:
 
 
 def _property_type(item: dict[str, Any], blob: str) -> str | None:
+    for candidate in PROPERTY_TYPES:
+        if candidate.lower() in blob.lower():
+            return normalize_type(candidate)
     attributes = item.get("attributes")
     if isinstance(attributes, dict):
         for key in ("propertyType", "property_type", "homeType"):
             raw = attributes.get(key)
             if isinstance(raw, str) and raw.strip():
                 normalized = normalize_type(raw)
-                if normalized:
+                if normalized in VALID_PROPERTY_TYPES:
                     return normalized
-    lower = blob.lower()
-    for candidate in PROPERTY_TYPES:
-        if candidate.lower() in lower:
-            return normalize_type(candidate)
-    return normalize_type(blob)
+    return None
 
 
 def _beds(item: dict[str, Any], blob: str) -> int | None:

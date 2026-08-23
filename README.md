@@ -69,10 +69,18 @@ npm run scrape:facebook
 PYTHONPATH=scraper python3 -m mtprop agencies --source remax
 ```
 
-Facebook Marketplace (requires `APIFY_API_TOKEN` in `.env`):
+Facebook Marketplace uses two scrape profiles (set `APIFY_FB_PROFILE`):
+
+| Profile | When (CI) | Scope | Pages | Window |
+|---|---|---|---|---|
+| `weekly` | Sundays | All Malta (Valletta hub URL) | 50 | 30 days |
+| `daily-north` | Mon–Sat | Mellieha + St Paul's Bay | 5 each | 7 days |
+
+Daily north runs are **partial** — they upsert new listings but do **not** inactivate Facebook listings elsewhere in Malta (the weekly run handles that).
 
 ```bash
-npm run scrape:facebook
+npm run scrape:facebook:weekly
+npm run scrape:facebook:daily
 ```
 
 **Cursor + Apify MCP:** [`.cursor/mcp.json`](.cursor/mcp.json) connects this repo to Apify (OAuth). From chat you can search actors, run `curious_coder/facebook-marketplace`, and inspect results without pasting a token here. The Python scraper and GitHub Actions still need `APIFY_API_TOKEN` in `.env` / repo secrets.
@@ -92,7 +100,7 @@ MCP OAuth covers chat only. For `npm run scrape:facebook` and daily GitHub Actio
    ```
    Paste the token when prompted.
 
-Default scrape URL is Valletta-area property-for-sale (`110612325626836/propertyforsale`) with a 30-day filter. Override with `APIFY_FB_URL` if needed.
+Default weekly scrape uses Valletta-area property-for-sale (`110612325626836/propertyforsale`). Override with `APIFY_FB_URL` or `APIFY_FB_URLS` if a town slug differs on Facebook.
 
 Short test (first page only):
 
@@ -141,10 +149,11 @@ In `.env`:
 - `SCRAPE_FULL=1` — force every page even after a full scrape exists
 - `SCRAPE_VERBOSE=1` — log every listing
 - `APIFY_API_TOKEN` — Apify API token for Facebook Marketplace
-- `APIFY_FB_MAX_PAGES` — cap Apify search pages (default 50)
-- `APIFY_FB_DAYS_LISTED` — Facebook date filter in days (default 30)
+- `APIFY_FB_PROFILE` — `weekly` (all Malta) or `daily-north` (Mellieha + St Paul's Bay)
+- `APIFY_FB_MAX_PAGES` — cap Apify search pages (profile defaults: 50 weekly, 5 daily)
+- `APIFY_FB_DAYS_LISTED` — Facebook date filter in days (profile defaults: 30 weekly, 7 daily)
 
-Daily GitHub runs scan the first 5 pages once a source already has a successful full scrape. Sundays run a full pass so dropped listings can be inactivated. Locally: `python3 -m mtprop agencies --full`. Facebook always runs a full Apify fetch (30-day window).
+Daily GitHub runs scan the first 5 pages once a source already has a successful full scrape. Sundays run a full pass so dropped listings can be inactivated. Locally: `python3 -m mtprop agencies --full`. Facebook: weekly full Malta on Sundays, daily Mellieha/St Paul's Bay Mon–Sat (`npm run scrape:facebook:daily`).
 
 ## Daily updates
 

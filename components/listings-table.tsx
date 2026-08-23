@@ -16,10 +16,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { areasForSlug, listingMatchesArea } from "@/lib/areas";
-import { eur, typeLabel } from "@/lib/format";
+import { eur, displayTypeLabel, typeLabel } from "@/lib/format";
 import { localityRegion, REGION_LABELS, REGIONS } from "@/lib/regions";
 import { cn } from "@/lib/utils";
-import type { ListingRow } from "@/lib/types";
+import { canonicalPropertyType, type ListingRow } from "@/lib/types";
 
 export type ListingPreview = ListingRow & {
   localityName: string | null;
@@ -146,9 +146,13 @@ export function ListingsTable({
 
   const propertyTypes = useMemo(
     () =>
-      [...new Set(uniqueListings.map((row) => row.property_type).filter(Boolean) as string[])].sort(
-        (a, b) => typeLabel(a).localeCompare(typeLabel(b), "en"),
-      ),
+      [
+        ...new Set(
+          uniqueListings
+            .map((row) => canonicalPropertyType(row.property_type))
+            .filter(Boolean) as NonNullable<ReturnType<typeof canonicalPropertyType>>[],
+        ),
+      ].sort((a, b) => typeLabel(a).localeCompare(typeLabel(b), "en")),
     [uniqueListings],
   );
 
@@ -166,7 +170,7 @@ export function ListingsTable({
       if (source !== "all" && row.source !== source) return false;
       if (localityId && row.locality_id !== localityId) return false;
       if (activeArea && !listingMatchesArea(row, activeArea)) return false;
-      if (propertyType !== "all" && row.property_type !== propertyType) return false;
+      if (propertyType !== "all" && canonicalPropertyType(row.property_type) !== propertyType) return false;
       if (tokens.length && !tokens.every((token) => listingHaystack(row, localityById).includes(token))) {
         return false;
       }
@@ -529,14 +533,7 @@ export function ListingsTable({
                   {listing.area ? <div className="text-muted-foreground mt-0.5 text-xs">{listing.area}</div> : null}
                 </TableCell>
                 <TableCell>
-                  <span
-                    className={cn(
-                      "inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize",
-                      typeBadgeClass(listing.property_type),
-                    )}
-                  >
-                    {typeLabel(listing.property_type)}
-                  </span>
+                  <TypeBadge propertyType={listing.property_type} />
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{listing.beds ?? "—"}</TableCell>
                 <TableCell className="text-right font-semibold tabular-nums text-emerald-800">
@@ -618,8 +615,8 @@ function listingHaystack(row: ListingPreview, localityById: Map<string, FilterLo
     row.area,
     region,
     region ? REGION_LABELS[region] : null,
-    row.property_type,
-    typeLabel(row.property_type),
+    canonicalPropertyType(row.property_type),
+    displayTypeLabel(row.property_type),
     priceSearchText(row.price),
   ]
     .filter(Boolean)
@@ -681,7 +678,7 @@ function sortValue(row: ListingPreview, key: SortKey): string | number | null {
     case "locality":
       return row.localityName;
     case "type":
-      return row.property_type;
+      return canonicalPropertyType(row.property_type);
     case "beds":
       return row.beds;
     case "price":
@@ -718,6 +715,30 @@ function sortLabel(key: SortKey, dir: SortDir) {
   return `sorted by ${labels[key]}, ${dir === "asc" ? "low to high" : "high to low"}`;
 }
 
+function TypeBadge({
+  propertyType,
+  compact = false,
+}: {
+  propertyType: string | null | undefined;
+  compact?: boolean;
+}) {
+  const label = displayTypeLabel(propertyType);
+  if (!label) return <span className="text-muted-foreground">—</span>;
+  const canonical = canonicalPropertyType(propertyType);
+  return (
+    <span
+      className={cn(
+        "inline-flex max-w-[8rem] truncate rounded-full font-medium capitalize",
+        compact ? "px-1.5 py-0.5 text-[10px] leading-tight" : "px-2 py-0.5 text-xs",
+        typeBadgeClass(canonical ?? propertyType),
+      )}
+      title={label}
+    >
+      {label}
+    </span>
+  );
+}
+
 function seenLabel(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
@@ -752,14 +773,7 @@ function ListingGridCard({ listing }: { listing: ListingPreview }) {
           {listing.area ? <span className="text-muted-foreground block break-words">{listing.area}</span> : null}
         </div>
         <div className="flex min-w-0 flex-wrap gap-1">
-          <span
-            className={cn(
-              "inline-flex max-w-full rounded-full px-1.5 py-0.5 text-[10px] leading-tight font-medium break-words capitalize",
-              typeBadgeClass(listing.property_type),
-            )}
-          >
-            {typeLabel(listing.property_type)}
-          </span>
+          <TypeBadge propertyType={listing.property_type} compact />
           {listing.beds != null ? (
             <span className="text-muted-foreground inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] leading-tight font-medium">
               {listing.beds} bed{listing.beds === 1 ? "" : "s"}
@@ -808,14 +822,7 @@ function ListingListCard({ listing }: { listing: ListingPreview }) {
           {listing.area ? <span className="text-muted-foreground block break-words">{listing.area}</span> : null}
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span
-            className={cn(
-              "inline-flex max-w-full rounded-full px-2 py-0.5 text-[11px] leading-tight font-medium break-words capitalize",
-              typeBadgeClass(listing.property_type),
-            )}
-          >
-            {typeLabel(listing.property_type)}
-          </span>
+          <TypeBadge propertyType={listing.property_type} compact />
           {listing.beds != null ? (
             <span className="text-muted-foreground text-xs tabular-nums">{listing.beds} bed{listing.beds === 1 ? "" : "s"}</span>
           ) : null}

@@ -20,7 +20,7 @@ import {
   getCachedLocalityTransactions,
   getCachedPeriodSnapshots,
 } from "@/lib/cached-data";
-import { compactNumber, eur, typeLabel } from "@/lib/format";
+import { compactNumber, displayTypeLabel, eur } from "@/lib/format";
 
 export default async function LocalityPage({
   params,
@@ -151,7 +151,7 @@ export default async function LocalityPage({
                       {listing.source}
                     </a>
                   </TableCell>
-                  <TableCell className="capitalize">{typeLabel(listing.property_type)}</TableCell>
+                  <TableCell className="capitalize">{displayTypeLabel(listing.property_type) ?? "—"}</TableCell>
                   <TableCell>{listing.street ?? "—"}</TableCell>
                   <TableCell className="text-right">{listing.sqm ?? "—"}</TableCell>
                   <TableCell className="text-right">{listing.ext_sqm ?? "—"}</TableCell>

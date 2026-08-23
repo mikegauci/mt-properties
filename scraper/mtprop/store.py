@@ -384,9 +384,9 @@ class ListingSink:
                 "image_url": row.get("image_url") or previous.get("image_url"),
             }
 
-    def finalize(self) -> int:
+    def finalize(self, *, inactivate_missing: bool = True) -> int:
         with client() as http:
-            if self.seen_ids and not max_pages():
+            if inactivate_missing and self.seen_ids and not max_pages():
                 self.inactivated += _inactivate_missing(http, self.source, set(self.seen_ids))
         return self.inactivated
 

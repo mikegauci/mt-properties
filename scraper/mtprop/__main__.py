@@ -76,7 +76,11 @@ def main(argv: list[str] | None = None) -> int:
         print(result)
         return 0
 
-    sources = list(AGENCIES) if args.source == "all" else [args.source]
+    sources = (
+        [name for name in AGENCIES if name != "facebook"]
+        if args.source == "all"
+        else [args.source]
+    )
     failed = False
     for source in sources:
         failed = run_agency(source, full=bool(args.full)) or failed
@@ -114,7 +118,11 @@ def run_agency(source: str, *, full: bool = False) -> bool:
             if batch:
                 sink.write(batch)
                 log.stored(source, sink.upserted, scraped, sink.skipped)
-            inactivated = sink.finalize()
+            inactivate_missing = True
+            if source == "facebook":
+                _, partial = facebook.run_options()
+                inactivate_missing = not partial
+            inactivated = sink.finalize(inactivate_missing=inactivate_missing)
             finish_run(run_id, upserted=sink.upserted, inactivated=inactivated)
             log.source_done(source, scraped, sink.upserted, inactivated, sink.duplicates, sink.skipped)
             return False
