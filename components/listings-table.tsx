@@ -88,7 +88,7 @@ export function ListingsTable({
   const [localityId, setLocalityId] = useState("");
   const [area, setArea] = useState("");
   const [propertyType, setPropertyType] = useState<string>("all");
-  const [excludePropertyType, setExcludePropertyType] = useState("");
+  const [excludePropertyTypes, setExcludePropertyTypes] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>("last_seen");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
@@ -166,24 +166,22 @@ export function ListingsTable({
     [query],
   );
 
+  const excludePropertyTypeSet = useMemo(() => new Set(excludePropertyTypes), [excludePropertyTypes]);
+
   const filtered = useMemo(() => {
     return uniqueListings.filter((row) => {
       if (source !== "all" && row.source !== source) return false;
       if (localityId && row.locality_id !== localityId) return false;
       if (activeArea && !listingMatchesArea(row, activeArea)) return false;
       if (propertyType !== "all" && canonicalPropertyType(row.property_type) !== propertyType) return false;
-      if (
-        excludePropertyType &&
-        canonicalPropertyType(row.property_type) === excludePropertyType
-      ) {
-        return false;
-      }
+      const canonical = canonicalPropertyType(row.property_type);
+      if (canonical && excludePropertyTypeSet.has(canonical)) return false;
       if (tokens.length && !tokens.every((token) => listingHaystack(row, localityById).includes(token))) {
         return false;
       }
       return true;
     });
-  }, [uniqueListings, source, localityId, activeArea, propertyType, excludePropertyType, tokens, localityById]);
+  }, [uniqueListings, source, localityId, activeArea, propertyType, excludePropertyTypeSet, tokens, localityById]);
 
   const sorted = useMemo(() => {
     const rows = [...filtered];
@@ -220,13 +218,17 @@ export function ListingsTable({
 
   function applyType(value: string) {
     setPropertyType(value || "all");
-    if (value && value === excludePropertyType) setExcludePropertyType("");
+    if (value) {
+      setExcludePropertyTypes((current) => current.filter((item) => item !== value));
+    }
     setPage(1);
   }
 
-  function applyExcludeType(value: string) {
-    setExcludePropertyType(value);
-    if (value && propertyType === value) setPropertyType("all");
+  function toggleExcludeType(value: string) {
+    setExcludePropertyTypes((current) =>
+      current.includes(value) ? current.filter((item) => item !== value) : [...current, value],
+    );
+    if (propertyType === value) setPropertyType("all");
     setPage(1);
   }
 
@@ -236,7 +238,7 @@ export function ListingsTable({
     setLocalityId("");
     setArea("");
     setPropertyType("all");
-    setExcludePropertyType("");
+    setExcludePropertyTypes([]);
     setPage(1);
   }
 
@@ -246,7 +248,7 @@ export function ListingsTable({
       localityId ||
       activeArea ||
       propertyType !== "all" ||
-      excludePropertyType,
+      excludePropertyTypes.length,
   );
 
   const localityOptions = localityGroups.flatMap((group) =>
@@ -353,15 +355,16 @@ export function ListingsTable({
         </div>
 
         {propertyTypes.length ? (
-          <div className="flex flex-wrap gap-1.5 md:hidden">
+          <div className="flex flex-wrap gap-1.5">
             <span className="text-muted-foreground self-center text-xs font-medium">Exclude</span>
             {propertyTypes.map((value) => {
-              const active = excludePropertyType === value;
+              const active = excludePropertyTypes.includes(value);
               return (
                 <button
                   key={value}
                   type="button"
-                  onClick={() => applyExcludeType(active ? "" : value)}
+                  onClick={() => toggleExcludeType(value)}
+                  aria-pressed={active}
                   className={cn(
                     "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
                     active
@@ -410,19 +413,6 @@ export function ListingsTable({
                 options={typeOptions}
                 placeholder="Type a property type"
                 emptyLabel="All types"
-                className="w-[14rem]"
-              />
-            </label>
-          ) : null}
-          {propertyTypes.length ? (
-            <label className="grid gap-1 text-xs font-medium text-sky-900/70">
-              Exclude type
-              <FilterCombobox
-                value={excludePropertyType}
-                onChange={applyExcludeType}
-                options={typeOptions}
-                placeholder="Type a property type"
-                emptyLabel="None"
                 className="w-[14rem]"
               />
             </label>
