@@ -220,7 +220,8 @@ export async function getLatestScrapeRuns(): Promise<ScrapeRun[]> {
   return (data ?? []) as ScrapeRun[];
 }
 
-const LISTING_SOURCES = ["remax", "propertymarket", "zanzi"] as const;
+const LISTING_SOURCES = ["remax", "propertymarket", "zanzi", "facebook"] as const;
+const LISTING_STATS_COLUMNS = "price, sqm, source";
 
 export async function getListingCounts() {
   const supabase = supabaseAdmin();
@@ -238,15 +239,44 @@ export async function getListingCounts() {
   );
 }
 
-export function listingCountsFromListings(listings: ListingRow[]) {
+export function listingCountsFromListings(listings: Pick<ListingRow, "source">[]) {
   const counts = new Map<string, number>();
   for (const listing of listings) {
     counts.set(listing.source, (counts.get(listing.source) ?? 0) + 1);
   }
-  return LISTING_SOURCES.map((source) => ({
-    source,
-    count: counts.get(source) ?? 0,
-  }));
+  return [...counts.entries()]
+    .sort(([left], [right]) => left.localeCompare(right, "en"))
+    .map(([source, count]) => ({ source, count }));
+}
+
+export async function getActiveListingStats(): Promise<{
+  stats: AskingStats;
+  counts: { source: string; count: number }[];
+}> {
+  const empty: AskingStats = {
+    sample: 0,
+    medianPrice: null,
+    medianPerSqm: null,
+    p25PerSqm: null,
+    p75PerSqm: null,
+  };
+  const supabase = supabaseAdmin();
+  if (!supabase) return { stats: empty, counts: [] };
+  type StatsRow = { price: number | null; sqm: number | null; source: string };
+  const rows = await paginate<StatsRow>((from, to) =>
+    supabase
+      .from("listings")
+      .select(LISTING_STATS_COLUMNS)
+      .eq("is_active", true)
+      .gt("price", 0)
+      .order("last_seen", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to),
+  );
+  return {
+    stats: askingStats(rows as ListingRow[]),
+    counts: listingCountsFromListings(rows),
+  };
 }
 
 export async function getComps(input: {

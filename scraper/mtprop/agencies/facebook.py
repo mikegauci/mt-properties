@@ -4,7 +4,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Any, Iterable, Iterator
 
 from .. import log
 from ..features import amenities_from_text
@@ -135,7 +135,12 @@ def fetch() -> Iterator[dict]:
         days,
     )
     run = client.actor(actor_id).call(run_input=run_input)
-    dataset_id = run["defaultDatasetId"]
+    if run is None:
+        raise RuntimeError(f"Apify actor {actor_id} run failed")
+    if isinstance(run, dict):
+        dataset_id = run["defaultDatasetId"]
+    else:
+        dataset_id = run.default_dataset_id
     kept = 0
     total = 0
     for item in client.dataset(dataset_id).iterate_items():

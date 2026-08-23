@@ -77,3 +77,10 @@ export async function getCachedListingCounts() {
   cacheLife("listings");
   return data.getListingCounts();
 }
+
+export async function getCachedActiveListingStats() {
+  "use cache";
+  cacheTag("listings");
+  cacheLife("listings");
+  return data.getActiveListingStats();
+}

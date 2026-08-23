@@ -1,31 +1,17 @@
 import { KpiCard } from "@/components/kpi-card";
 import { sourceTheme } from "@/components/listing-theme";
-import { ListingsTable, type ListingPreview } from "@/components/listings-table";
+import { ListingsExplorer } from "@/components/listings-explorer";
 import { SetupBanner } from "@/components/setup-banner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { askingStats, listingCountsFromListings } from "@/lib/data";
-import { getCachedActiveListings, getCachedLocalities } from "@/lib/cached-data";
+import { getCachedActiveListingStats } from "@/lib/cached-data";
 import { eur } from "@/lib/format";
 import { supabaseConfigured } from "@/lib/supabase/server";
 
 export default async function ListingsPage() {
   const configured = supabaseConfigured();
-  const [listings, localities] = configured
-    ? await Promise.all([getCachedActiveListings(), getCachedLocalities()])
-    : [[], []];
-  const counts = listingCountsFromListings(listings);
-
-  const localityById = new Map(localities.map((row) => [row.id, row]));
-  const previews: ListingPreview[] = listings.map((listing) => {
-    const locality = listing.locality_id ? localityById.get(listing.locality_id) : undefined;
-    return {
-      ...listing,
-      localityName: locality?.name_en ?? null,
-      localitySlug: locality?.slug ?? null,
-    };
-  });
-
-  const stats = askingStats(listings);
+  const { stats, counts } = configured
+    ? await getCachedActiveListingStats()
+    : { stats: { sample: 0, medianPrice: null, medianPerSqm: null, p25PerSqm: null, p75PerSqm: null }, counts: [] };
   const sourcesWithListings = counts.filter((row) => row.count > 0).length;
 
   return (
@@ -69,23 +55,7 @@ export default async function ListingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="py-4">
-          {previews.length ? (
-            <ListingsTable
-              listings={previews}
-              localities={localities.map((row) => ({
-                id: row.id,
-                slug: row.slug,
-                name: row.name_en,
-                district: row.district,
-                island: row.island,
-              }))}
-            />
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              No active listings yet. Run the scraper from Pipeline or locally with{" "}
-              <code className="text-xs">npm run scrape:propertymarket</code>.
-            </p>
-          )}
+          {configured ? <ListingsExplorer /> : null}
         </CardContent>
       </Card>
     </div>
