@@ -1,7 +1,9 @@
+export const SUPABASE_PAGE_SIZE = 1000;
+
 export async function paginate<T>(
   fetcher: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ) {
-  const page = 1000;
+  const page = SUPABASE_PAGE_SIZE;
   const out: T[] = [];
   for (let from = 0; from < 200000; from += page) {
     const { data, error } = await fetcher(from, from + page - 1);

@@ -1,5 +1,5 @@
 import { median, percentile } from "@/lib/format";
-import { paginate, uniqueById } from "@/lib/db/paginate";
+import { paginate, SUPABASE_PAGE_SIZE, uniqueById } from "@/lib/db/paginate";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { ListingRow } from "@/lib/types";
 import type { AskingListing } from "@/lib/year-compare";
@@ -68,7 +68,7 @@ export async function getActiveListingsPage(input: {
     return { listings: [], total: 0, page: input.page, pageSize: input.pageSize, hasMore: false };
   }
   const page = Math.max(1, input.page);
-  const pageSize = Math.min(5000, Math.max(1, input.pageSize));
+  const pageSize = Math.min(SUPABASE_PAGE_SIZE, Math.max(1, input.pageSize));
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
   let query = supabase
@@ -82,14 +82,20 @@ export async function getActiveListingsPage(input: {
   if (input.localityId) query = query.eq("locality_id", input.localityId);
   if (input.source) query = query.eq("source", input.source);
   const { data, error, count } = await query;
-  if (error) throw error;
+  if (error) {
+    if (error.code === "PGRST103") {
+      return { listings: [], total: count ?? from, page, pageSize, hasMore: false };
+    }
+    throw error;
+  }
   const total = count ?? 0;
+  const batchSize = data?.length ?? 0;
   return {
     listings: uniqueById((data ?? []) as ListingRow[]),
     total,
     page,
     pageSize,
-    hasMore: from + (data?.length ?? 0) < total,
+    hasMore: batchSize > 0 && from + batchSize < total,
   };
 }
 

@@ -6,6 +6,7 @@ import {
   type FilterLocality,
   type ListingPreview,
 } from "@/components/listings-table";
+import { SUPABASE_PAGE_SIZE } from "@/lib/db/paginate";
 
 type ListingsPage = {
   listings: ListingPreview[];
@@ -18,10 +19,11 @@ async function fetchAllListings(): Promise<{ listings: ListingPreview[]; localit
   let listings: ListingPreview[] = [];
   let localities: FilterLocality[] = [];
   while (true) {
-    const response = await fetch(`/api/listings?page=${page}&pageSize=2000`);
+    const response = await fetch(`/api/listings?page=${page}&pageSize=${SUPABASE_PAGE_SIZE}`);
     if (!response.ok) throw new Error("Could not load listings");
     const data = (await response.json()) as ListingsPage;
     if (page === 1 && data.localities) localities = data.localities;
+    if (page > 1 && !data.listings.length) break;
     listings = listings.concat(data.listings);
     if (!data.hasMore) break;
     page += 1;
