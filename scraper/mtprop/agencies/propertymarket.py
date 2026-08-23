@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterator
 from urllib.parse import urljoin
 
@@ -9,7 +10,7 @@ from bs4 import BeautifulSoup
 from ..features import amenities_from_text
 from ..images import from_card
 from ..localities import locality_rows
-from .http import http_client, page_limit, sleep
+from .http import http_client, page_limit, scrape_page_workers, sleep
 from .. import log
 
 SOURCE = "propertymarket"
@@ -30,13 +31,25 @@ def fetch() -> Iterator[dict]:
         log.page(SOURCE, 1, capped, len(items))
         yield from items
 
-        for page in range(2, capped + 1):
-            sleep()
-            response = http.get(SEARCH.format(page=page))
-            response.raise_for_status()
-            items = list(_cards(BeautifulSoup(response.text, "lxml")))
+    remaining = list(range(2, capped + 1))
+    if not remaining:
+        return
+    workers = scrape_page_workers()
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(_fetch_page, page): page for page in remaining}
+        for future in as_completed(futures):
+            page = futures[future]
+            items = future.result()
             log.page(SOURCE, page, capped, len(items))
             yield from items
+
+
+def _fetch_page(page: int) -> list[dict]:
+    sleep()
+    with http_client() as http:
+        response = http.get(SEARCH.format(page=page))
+        response.raise_for_status()
+        return list(_cards(BeautifulSoup(response.text, "lxml")))
 
 
 def _last_page(soup: BeautifulSoup) -> int:

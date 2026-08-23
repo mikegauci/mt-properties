@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Iterator
 
-from .http import http_client, page_limit, sleep
+from .http import http_client, page_limit, remax_detail_workers, sleep
 from .. import log
 from ..features import amenities_from_remax_detail, garage_from_remax
 from ..images import absolute
@@ -36,7 +37,7 @@ def fetch() -> Iterator[dict]:
             items = list(_parse_page((response.json().get("data") or {}).get("Properties") or []))
             log.page(SOURCE, page, capped, len(items))
             listings.extend(items)
-        yield from _enrich_details(http, listings)
+    yield from _enrich_details(listings)
 
 
 def _parse_page(items: list[dict]) -> Iterator[dict]:
@@ -78,34 +79,56 @@ def _parse_page(items: list[dict]) -> Iterator[dict]:
         }
 
 
-def _enrich_details(http, listings: list[dict]) -> Iterator[dict]:
+def _enrich_details(listings: list[dict]) -> Iterator[dict]:
     known = listings_already_detailed(SOURCE)
-    fetched = 0
+    pending: list[dict] = []
     skipped = 0
-    failed = 0
     for listing in listings:
-        mls = listing["external_id"]
-        if mls in known:
+        if listing["external_id"] in known:
             skipped += 1
             yield listing
-            continue
-        sleep()
-        try:
+        else:
+            pending.append(listing)
+    if not pending:
+        log.details(SOURCE, 0, skipped, 0)
+        return
+    fetched = 0
+    failed = 0
+    workers = remax_detail_workers()
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(_fetch_detail, listing): listing for listing in pending}
+        for future in as_completed(futures):
+            listing = futures[future]
+            try:
+                result = future.result()
+            except Exception as exc:
+                failed += 1
+                log.detail_failed(SOURCE, listing["external_id"], exc)
+                yield listing
+                continue
+            if result is listing:
+                failed += 1
+            else:
+                fetched += 1
+            yield result
+    log.details(SOURCE, fetched, skipped, failed)
+
+
+def _fetch_detail(listing: dict) -> dict:
+    mls = listing["external_id"]
+    sleep()
+    try:
+        with http_client() as http:
             response = http.get(f"{BASE}/{mls}")
             response.raise_for_status()
             payload = response.json()
             detail = payload.get("data") if isinstance(payload.get("data"), dict) else payload
             if not isinstance(detail, dict):
                 raise ValueError("unexpected detail payload")
-        except Exception as exc:
-            failed += 1
-            log.detail_failed(SOURCE, mls, exc)
-            yield listing
-            continue
-        listing = _apply_detail(listing, detail)
-        fetched += 1
-        yield listing
-    log.details(SOURCE, fetched, skipped, failed)
+    except Exception as exc:
+        log.detail_failed(SOURCE, mls, exc)
+        return listing
+    return _apply_detail(listing, detail)
 
 
 def _apply_detail(listing: dict, detail: dict[str, Any]) -> dict:

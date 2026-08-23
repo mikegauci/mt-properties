@@ -8,6 +8,10 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [remax, propertymarket, zanzi]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -15,35 +19,25 @@ jobs:
           python-version: "3.12"
       - name: Install scraper
         run: pip install -r scraper/requirements.txt
-      - name: Scrape agencies
+      - name: Scrape ${{ matrix.source }}
         working-directory: scraper
         env:
           PYTHONPATH: .
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
-          SCRAPE_DELAY_SECONDS: "0.5"
+          SCRAPE_DELAY_SECONDS: "0.1"
         run: |
           if [ "$(date -u +%u)" = "7" ]; then
             export SCRAPE_FULL=1
           fi
-          python -m mtprop agencies
-      - name: Facebook Marketplace
-        working-directory: scraper
-        env:
-          PYTHONPATH: .
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
-        run: |
-          if [ "$(date -u +%u)" = "7" ]; then
-            export APIFY_FB_PROFILE=weekly
-          else
-            export APIFY_FB_PROFILE=daily-north
-          fi
-          python -m mtprop agencies --source facebook
+          python -m mtprop agencies --source ${{ matrix.source }}
+
+  revalidate:
+    needs: scrape
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
       - name: Revalidate app cache
-        if: success()
         env:
           REVALIDATE_URL: ${{ secrets.REVALIDATE_URL }}
           REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}

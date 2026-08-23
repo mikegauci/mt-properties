@@ -146,6 +146,8 @@ In `.env`:
 
 - `SCRAPE_DELAY_SECONDS` — pause between listing pages (default 0.1)
 - `SCRAPE_MAX_PAGES` — cap pages per source (omit for a full run)
+- `SCRAPE_PAGE_WORKERS` — parallel HTML page fetches for Property Market and Zanzi (default 3)
+- `REMAX_DETAIL_WORKERS` — parallel Remax detail API fetches (default 12)
 - `SCRAPE_FULL=1` — force every page even after a full scrape exists
 - `SCRAPE_VERBOSE=1` — log every listing
 - `APIFY_API_TOKEN` — Apify API token for Facebook Marketplace
@@ -153,13 +155,13 @@ In `.env`:
 - `APIFY_FB_MAX_PAGES` — cap Apify search pages (profile defaults: 50 weekly, 5 daily)
 - `APIFY_FB_DAYS_LISTED` — Facebook date filter in days (profile defaults: 30 weekly, 7 daily)
 
-Daily GitHub runs scan the first 5 pages once a source already has a successful full scrape. Sundays run a full pass so dropped listings can be inactivated. Locally: `python3 -m mtprop agencies --full`. Facebook: weekly full Malta on Sundays, daily Mellieha/St Paul's Bay Mon–Sat (`npm run scrape:facebook:daily`).
+Daily GitHub runs scrape Remax, Property Market, and Zanzi in parallel (first 5 pages once a source already has a full scrape). Sundays run a full pass so dropped listings can be inactivated. Facebook is not run in CI — use `npm run scrape:facebook` locally when needed.
 
 ## Daily updates
 
 GitHub Actions:
 
-- `.github/workflows/daily-scrape.yml` — 03:00 UTC (5 newest pages; full scan on Sundays)
+- `.github/workflows/daily-scrape.yml` — 03:00 UTC (Remax, Property Market, Zanzi in parallel; 5 newest pages weekdays, full scan Sundays)
 - `.github/workflows/weekly-nso.yml` — Mondays 06:00 UTC
 
 Repository secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `APIFY_API_TOKEN`.

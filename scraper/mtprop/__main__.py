@@ -14,6 +14,7 @@ from .store import (
     ListingSink,
     backfill_listing_areas,
     finish_run,
+    missing_image_rows,
     source_ready_for_incremental,
     start_run,
 )
@@ -100,7 +101,7 @@ def run_agency(source: str, *, full: bool = False) -> bool:
     try:
         run_id = start_run(source)
         log.source_start(source, pages=INCREMENTAL_PAGES if incremental else None)
-        if source != "facebook":
+        if source != "facebook" and missing_image_rows(source):
             images_backfill.run(source)
         sink = ListingSink(source)
         scraped = 0

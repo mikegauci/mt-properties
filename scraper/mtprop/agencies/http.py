@@ -16,6 +16,16 @@ def sleep() -> None:
     time.sleep(float(os.environ.get("SCRAPE_DELAY_SECONDS", "0.1")))
 
 
+def scrape_page_workers() -> int:
+    raw = os.environ.get("SCRAPE_PAGE_WORKERS")
+    return max(1, int(raw)) if raw else 3
+
+
+def remax_detail_workers() -> int:
+    raw = os.environ.get("REMAX_DETAIL_WORKERS")
+    return max(1, int(raw)) if raw else 12
+
+
 def image_backfill_workers() -> int:
     raw = os.environ.get("IMAGE_BACKFILL_WORKERS")
     return max(1, int(raw)) if raw else 12
