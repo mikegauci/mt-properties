@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { areasForSlug, listingMatchesArea } from "@/lib/areas";
-import { eur, displayTypeLabel, typeLabel } from "@/lib/format";
+import { eur, compactNumber, displayTypeLabel, typeLabel } from "@/lib/format";
 import { localityRegion, REGION_LABELS, REGIONS } from "@/lib/regions";
 import { cn } from "@/lib/utils";
 import { canonicalPropertyType, type ListingRow } from "@/lib/types";
@@ -251,12 +251,12 @@ export function ListingsTable({
   }
 
   function applyPriceFrom(value: string) {
-    setPriceFrom(value);
+    setPriceFrom(formatPriceInput(value));
     setPage(1);
   }
 
   function applyPriceTo(value: string) {
-    setPriceTo(value);
+    setPriceTo(formatPriceInput(value));
     setPage(1);
   }
 
@@ -416,27 +416,23 @@ export function ListingsTable({
             Price
             <div className="flex items-center gap-2">
               <Input
-                type="number"
+                type="text"
                 inputMode="numeric"
-                min={0}
-                step={1000}
                 value={priceFrom}
                 onChange={(event) => applyPriceFrom(event.target.value)}
                 placeholder="From"
                 aria-label="Minimum price"
-                className="bg-background w-[7.5rem]"
+                className="bg-background w-[9rem] tabular-nums"
               />
               <span className="text-muted-foreground text-xs">–</span>
               <Input
-                type="number"
+                type="text"
                 inputMode="numeric"
-                min={0}
-                step={1000}
                 value={priceTo}
                 onChange={(event) => applyPriceTo(event.target.value)}
                 placeholder="To"
                 aria-label="Maximum price"
-                className="bg-background w-[7.5rem]"
+                className="bg-background w-[9rem] tabular-nums"
               />
             </div>
           </label>
@@ -706,6 +702,12 @@ function parsePriceInput(value: string) {
   if (!trimmed) return null;
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function formatPriceInput(value: string) {
+  const digits = value.replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return compactNumber(Number(digits));
 }
 
 function priceSearchText(price: number | null | undefined) {
