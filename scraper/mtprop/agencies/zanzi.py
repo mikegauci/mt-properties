@@ -4,12 +4,12 @@ import re
 from typing import Iterator
 from urllib.parse import urljoin
 
+import httpx
 from bs4 import BeautifulSoup
 
 from ..features import amenities_from_text
 from ..images import from_card
 from ..localities import fold
-from .html_pages import yield_paginated_pages
 from .http import http_client, page_limit, sleep
 from .. import log
 
@@ -36,15 +36,19 @@ def fetch() -> Iterator[dict]:
         soup = BeautifulSoup(first.text, "lxml")
         capped = page_limit(_last_page(http, soup))
         first_items = list(_cards(soup))
-    yield from yield_paginated_pages(SOURCE, capped, 1, first_items, _fetch_page)
+        log.page(SOURCE, 1, capped, len(first_items))
+        yield from first_items
+        for page in range(2, capped + 1):
+            sleep()
+            items = _fetch_page(http, page)
+            log.page(SOURCE, page, capped, len(items))
+            yield from items
 
 
-def _fetch_page(page: int) -> list[dict]:
-    sleep()
-    with http_client() as http:
-        response = http.get(PAGE.format(page=page), headers=AJAX_HEADERS)
-        response.raise_for_status()
-        return list(_cards(BeautifulSoup(response.text, "lxml")))
+def _fetch_page(http: httpx.Client, page: int) -> list[dict]:
+    response = http.get(PAGE.format(page=page), headers=AJAX_HEADERS)
+    response.raise_for_status()
+    return list(_cards(BeautifulSoup(response.text, "lxml")))
 
 
 def _last_page(http, first_soup: BeautifulSoup) -> int:
