@@ -89,6 +89,8 @@ export function ListingsTable({
   const [area, setArea] = useState("");
   const [propertyType, setPropertyType] = useState<string>("all");
   const [excludePropertyTypes, setExcludePropertyTypes] = useState<string[]>([]);
+  const [priceFrom, setPriceFrom] = useState("");
+  const [priceTo, setPriceTo] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("last_seen");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
@@ -168,6 +170,9 @@ export function ListingsTable({
 
   const excludePropertyTypeSet = useMemo(() => new Set(excludePropertyTypes), [excludePropertyTypes]);
 
+  const minPrice = useMemo(() => parsePriceInput(priceFrom), [priceFrom]);
+  const maxPrice = useMemo(() => parsePriceInput(priceTo), [priceTo]);
+
   const filtered = useMemo(() => {
     return uniqueListings.filter((row) => {
       if (source !== "all" && row.source !== source) return false;
@@ -176,12 +181,25 @@ export function ListingsTable({
       if (propertyType !== "all" && canonicalPropertyType(row.property_type) !== propertyType) return false;
       const canonical = canonicalPropertyType(row.property_type);
       if (canonical && excludePropertyTypeSet.has(canonical)) return false;
+      if (minPrice != null && (row.price == null || row.price < minPrice)) return false;
+      if (maxPrice != null && (row.price == null || row.price > maxPrice)) return false;
       if (tokens.length && !tokens.every((token) => listingHaystack(row, localityById).includes(token))) {
         return false;
       }
       return true;
     });
-  }, [uniqueListings, source, localityId, activeArea, propertyType, excludePropertyTypeSet, tokens, localityById]);
+  }, [
+    uniqueListings,
+    source,
+    localityId,
+    activeArea,
+    propertyType,
+    excludePropertyTypeSet,
+    minPrice,
+    maxPrice,
+    tokens,
+    localityById,
+  ]);
 
   const sorted = useMemo(() => {
     const rows = [...filtered];
@@ -232,6 +250,16 @@ export function ListingsTable({
     setPage(1);
   }
 
+  function applyPriceFrom(value: string) {
+    setPriceFrom(value);
+    setPage(1);
+  }
+
+  function applyPriceTo(value: string) {
+    setPriceTo(value);
+    setPage(1);
+  }
+
   function clearFilters() {
     setQuery("");
     setSource("all");
@@ -239,6 +267,8 @@ export function ListingsTable({
     setArea("");
     setPropertyType("all");
     setExcludePropertyTypes([]);
+    setPriceFrom("");
+    setPriceTo("");
     setPage(1);
   }
 
@@ -248,7 +278,9 @@ export function ListingsTable({
       localityId ||
       activeArea ||
       propertyType !== "all" ||
-      excludePropertyTypes.length,
+      excludePropertyTypes.length ||
+      priceFrom.trim() ||
+      priceTo.trim(),
   );
 
   const localityOptions = localityGroups.flatMap((group) =>
@@ -378,6 +410,37 @@ export function ListingsTable({
             })}
           </div>
         ) : null}
+
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="grid gap-1 text-xs font-medium text-sky-900/70">
+            Price
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={1000}
+                value={priceFrom}
+                onChange={(event) => applyPriceFrom(event.target.value)}
+                placeholder="From"
+                aria-label="Minimum price"
+                className="bg-background w-[7.5rem]"
+              />
+              <span className="text-muted-foreground text-xs">–</span>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={1000}
+                value={priceTo}
+                onChange={(event) => applyPriceTo(event.target.value)}
+                placeholder="To"
+                aria-label="Maximum price"
+                className="bg-background w-[7.5rem]"
+              />
+            </div>
+          </label>
+        </div>
 
         <div className="hidden flex-wrap items-end gap-3 md:flex">
           <label className="grid gap-1 text-xs font-medium text-sky-900/70">
@@ -636,6 +699,13 @@ export function ListingsTable({
 
 function normalizeSearchToken(token: string) {
   return token.replace(/[€,\s]/g, "").toLowerCase();
+}
+
+function parsePriceInput(value: string) {
+  const trimmed = value.trim().replace(/[€,\s]/g, "");
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
 function priceSearchText(price: number | null | undefined) {
