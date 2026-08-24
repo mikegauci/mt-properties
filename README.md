@@ -146,7 +146,7 @@ In `.env`:
 
 - `SCRAPE_DELAY_SECONDS` — pause between listing pages (default 0.1)
 - `SCRAPE_MAX_PAGES` — cap pages per source (omit for a full run)
-- `SCRAPE_PAGE_WORKERS` — parallel HTML page fetches for Property Market and Zanzi (default 3)
+- `SCRAPE_PAGE_WORKERS` — parallel HTML page fetches for Property Market (default 3; Zanzi uses a single session sequentially)
 - `REMAX_DETAIL_WORKERS` — parallel Remax detail API fetches (default 12)
 - `SCRAPE_FULL=1` — force every page even after a full scrape exists
 - `SCRAPE_VERBOSE=1` — log every listing
