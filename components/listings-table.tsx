@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown, ImageIcon, LayoutGrid, LayoutList, Search, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FilterCombobox } from "@/components/filter-combobox";
 import { sourceTheme, typeBadgeClass } from "@/components/listing-theme";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { areasForSlug, listingMatchesArea } from "@/lib/areas";
+import { fetchListings, type ListingsFacets } from "@/lib/listings-api";
+import type { SortDir, SortKey } from "@/lib/listings-filter";
 import { eur, compactNumber, displayTypeLabel, typeLabel } from "@/lib/format";
 import { localityRegion, REGION_LABELS, REGIONS } from "@/lib/regions";
 import { cn } from "@/lib/utils";
@@ -35,20 +36,8 @@ export type FilterLocality = {
 };
 
 const PAGE_SIZES = [25, 50, 100] as const;
-const DEFAULT_PAGE_SIZE = 50;
+export const DEFAULT_PAGE_SIZE = 50;
 
-type SortKey =
-  | "title"
-  | "locality"
-  | "type"
-  | "beds"
-  | "price"
-  | "price_per_sqm"
-  | "sqm"
-  | "source"
-  | "last_seen"
-  | "first_seen";
-type SortDir = "asc" | "desc";
 type MobileView = "grid" | "list";
 
 const TEXT_SORT: SortKey[] = ["title", "locality", "type", "source"];
@@ -67,23 +56,17 @@ const SORT_PRESETS: { value: `${SortKey}:${SortDir}`; label: string }[] = [
   { value: "beds:desc", label: "Beds: most first" },
 ];
 
-export function ListingsTable({
-  listings,
-  localities,
-}: {
-  listings: ListingPreview[];
-  localities: FilterLocality[];
-}) {
-  const uniqueListings = useMemo(() => {
-    const seen = new Set<string>();
-    return listings.filter((row) => {
-      if (seen.has(row.id)) return false;
-      seen.add(row.id);
-      return true;
-    });
-  }, [listings]);
+export function ListingsTable() {
+  const [listings, setListings] = useState<ListingPreview[]>([]);
+  const [localities, setLocalities] = useState<FilterLocality[]>([]);
+  const [facets, setFacets] = useState<ListingsFacets | null>(null);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [source, setSource] = useState<string>("all");
   const [localityId, setLocalityId] = useState("");
   const [area, setArea] = useState("");
@@ -97,19 +80,82 @@ export function ListingsTable({
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(DEFAULT_PAGE_SIZE);
   const [mobileView, setMobileView] = useState<MobileView>("grid");
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(total / pageSize));
+    if (page > maxPage) setPage(maxPage);
+  }, [total, pageSize, page]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await fetchListings(
+          {
+            page,
+            pageSize,
+            sortKey,
+            sortDir,
+            source,
+            localityId,
+            area,
+            propertyType,
+            excludePropertyTypes,
+            q: debouncedQuery,
+            priceFrom,
+            priceTo,
+            facets: true,
+          },
+          controller.signal,
+        );
+        if (cancelled) return;
+        setListings(data.listings);
+        setTotal(data.total);
+        if (data.localities?.length) setLocalities(data.localities);
+        if (data.facets) setFacets(data.facets);
+      } catch (err) {
+        if (cancelled || controller.signal.aborted) return;
+        setError(err instanceof Error ? err.message : "Could not load listings");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [
+    page,
+    pageSize,
+    sortKey,
+    sortDir,
+    source,
+    localityId,
+    area,
+    propertyType,
+    excludePropertyTypes,
+    debouncedQuery,
+    priceFrom,
+    priceTo,
+    attempt,
+  ]);
+
   const sources = useMemo(
-    () => [...new Set(uniqueListings.map((row) => row.source))].sort(),
-    [uniqueListings],
+    () => facets?.sourceCounts.map((row) => row.source) ?? [],
+    [facets],
   );
 
-  const localityCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const row of uniqueListings) {
-      if (!row.locality_id) continue;
-      counts.set(row.locality_id, (counts.get(row.locality_id) ?? 0) + 1);
-    }
-    return counts;
-  }, [uniqueListings]);
+  const localityCounts = useMemo(() => new Map(Object.entries(facets?.localityCounts ?? {})), [facets]);
 
   const localityGroups = useMemo(
     () =>
@@ -123,95 +169,26 @@ export function ListingsTable({
     [localities],
   );
 
-  const selectedLocality = useMemo(
-    () => localities.find((row) => row.id === localityId) ?? null,
-    [localities, localityId],
-  );
-
   const areaOptions = useMemo(() => {
-    if (!selectedLocality) return [];
-    const names = new Set(areasForSlug(selectedLocality.slug));
-    for (const row of uniqueListings) {
-      if (row.locality_id === localityId && row.area) names.add(row.area);
-    }
-    const counts: [string, number][] = [];
-    for (const name of names) {
-      let count = 0;
-      for (const row of uniqueListings) {
-        if (row.locality_id !== localityId) continue;
-        if (source !== "all" && row.source !== source) continue;
-        if (listingMatchesArea(row, name)) count += 1;
-      }
-      if (count) counts.push([name, count]);
-    }
-    return counts.sort((a, b) => a[0].localeCompare(b[0], "en"));
-  }, [uniqueListings, selectedLocality, localityId, source]);
+    const counts = facets?.areaCounts ?? [];
+    return counts.map((row) => [row.area, row.count] as [string, number]);
+  }, [facets]);
 
   const propertyTypes = useMemo(
     () =>
-      [
-        ...new Set(
-          uniqueListings
-            .map((row) => canonicalPropertyType(row.property_type))
-            .filter(Boolean) as NonNullable<ReturnType<typeof canonicalPropertyType>>[],
-        ),
-      ].sort((a, b) => typeLabel(a).localeCompare(typeLabel(b), "en")),
-    [uniqueListings],
+      (facets?.propertyTypes ?? [])
+        .map((row) => row.type)
+        .sort((a, b) => typeLabel(a).localeCompare(typeLabel(b), "en")),
+    [facets],
   );
 
   const activeArea = areaOptions.some(([name]) => name === area) ? area : "";
 
-  const localityById = useMemo(() => new Map(localities.map((row) => [row.id, row])), [localities]);
-
-  const tokens = useMemo(
-    () => query.trim().toLowerCase().split(/\s+/).filter(Boolean).map(normalizeSearchToken),
-    [query],
-  );
-
-  const excludePropertyTypeSet = useMemo(() => new Set(excludePropertyTypes), [excludePropertyTypes]);
-
-  const minPrice = useMemo(() => parsePriceInput(priceFrom), [priceFrom]);
-  const maxPrice = useMemo(() => parsePriceInput(priceTo), [priceTo]);
-
-  const filtered = useMemo(() => {
-    return uniqueListings.filter((row) => {
-      if (source !== "all" && row.source !== source) return false;
-      if (localityId && row.locality_id !== localityId) return false;
-      if (activeArea && !listingMatchesArea(row, activeArea)) return false;
-      if (propertyType !== "all" && canonicalPropertyType(row.property_type) !== propertyType) return false;
-      const canonical = canonicalPropertyType(row.property_type);
-      if (canonical && excludePropertyTypeSet.has(canonical)) return false;
-      if (minPrice != null && (row.price == null || row.price < minPrice)) return false;
-      if (maxPrice != null && (row.price == null || row.price > maxPrice)) return false;
-      if (tokens.length && !tokens.every((token) => listingHaystack(row, localityById).includes(token))) {
-        return false;
-      }
-      return true;
-    });
-  }, [
-    uniqueListings,
-    source,
-    localityId,
-    activeArea,
-    propertyType,
-    excludePropertyTypeSet,
-    minPrice,
-    maxPrice,
-    tokens,
-    localityById,
-  ]);
-
-  const sorted = useMemo(() => {
-    const rows = [...filtered];
-    rows.sort((left, right) => compareListings(left, right, sortKey, sortDir));
-    return rows;
-  }, [filtered, sortKey, sortDir]);
-
-  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(page, pageCount);
-  const from = sorted.length ? (currentPage - 1) * pageSize + 1 : 0;
-  const to = Math.min(currentPage * pageSize, sorted.length);
-  const pageRows = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const from = total ? (currentPage - 1) * pageSize + 1 : 0;
+  const to = Math.min(currentPage * pageSize, total);
+  const pageRows = listings;
 
   function applyQuery(value: string) {
     setQuery(value);
@@ -329,6 +306,37 @@ export function ListingsTable({
   const sortSelectValue = SORT_PRESETS.some((row) => row.value === sortPresetValue)
     ? sortPresetValue
     : "last_seen:desc";
+
+  if (error && !localities.length) {
+    return (
+      <div className="space-y-2">
+        <p className="text-muted-foreground text-sm">{error}</p>
+        <button
+          type="button"
+          className="text-sky-700 text-sm underline underline-offset-2"
+          onClick={() => {
+            setError(null);
+            setAttempt((value) => value + 1);
+          }}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  if (loading && !localities.length) {
+    return <p className="text-muted-foreground text-sm">Loading listings…</p>;
+  }
+
+  if (!loading && total === 0 && !filtersActive) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        No active listings yet. Run the scraper from Pipeline or locally with{" "}
+        <code className="text-xs">npm run scrape:propertymarket</code>.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -500,8 +508,7 @@ export function ListingsTable({
 
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         <p className="text-muted-foreground min-w-0 flex-1">
-          Showing {from}–{to} of {sorted.length} listings
-          {sorted.length !== uniqueListings.length ? ` (filtered from ${uniqueListings.length})` : null}
+          Showing {from}–{to} of {compactNumber(total)} listings
           {` · ${sortLabel(sortKey, sortDir)}`}
         </p>
         <div className="flex flex-wrap items-center gap-2">
@@ -562,6 +569,7 @@ export function ListingsTable({
         </div>
       </div>
 
+      <div className={cn("space-y-4 transition-opacity", loading && localities.length ? "opacity-60" : "")}>
       <div className="md:hidden">
         {mobileView === "grid" ? (
           <div className="grid grid-cols-2 gap-2.5">
@@ -659,9 +667,12 @@ export function ListingsTable({
         </TableBody>
       </Table>
       </div>
+      </div>
 
-      {!sorted.length ? (
-        <p className="text-muted-foreground text-sm">No listings match these filters.</p>
+      {!total ? (
+        <p className="text-muted-foreground text-sm">
+          {loading ? "Loading listings…" : "No listings match these filters."}
+        </p>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-muted-foreground text-sm">
@@ -693,54 +704,10 @@ export function ListingsTable({
   );
 }
 
-function normalizeSearchToken(token: string) {
-  return token.replace(/[€,\s]/g, "").toLowerCase();
-}
-
-function parsePriceInput(value: string) {
-  const trimmed = value.trim().replace(/[€,\s]/g, "");
-  if (!trimmed) return null;
-  const parsed = Number(trimmed);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-}
-
 function formatPriceInput(value: string) {
   const digits = value.replace(/[^\d]/g, "");
   if (!digits) return "";
   return compactNumber(Number(digits));
-}
-
-function priceSearchText(price: number | null | undefined) {
-  if (!price || price <= 0) return "";
-  const parts = [String(price)];
-  const formatted = new Intl.NumberFormat("en-MT", { maximumFractionDigits: 0 }).format(price);
-  parts.push(formatted.replace(/,/g, ""));
-  if (price >= 1000) {
-    const thousands = price / 1000;
-    parts.push(Number.isInteger(thousands) ? `${thousands}k` : `${thousands.toFixed(1).replace(/\.0$/, "")}k`);
-  }
-  if (price >= 1_000_000) {
-    const millions = price / 1_000_000;
-    parts.push(Number.isInteger(millions) ? `${millions}m` : `${millions.toFixed(1).replace(/\.0$/, "")}m`);
-  }
-  return parts.join(" ");
-}
-
-function listingHaystack(row: ListingPreview, localityById: Map<string, FilterLocality>) {
-  const locality = row.locality_id ? localityById.get(row.locality_id) : undefined;
-  const region = locality ? localityRegion(locality) : null;
-  return [
-    row.localityName,
-    row.area,
-    region,
-    region ? REGION_LABELS[region] : null,
-    canonicalPropertyType(row.property_type),
-    displayTypeLabel(row.property_type),
-    priceSearchText(row.price),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
 }
 
 function SortHead({
@@ -776,43 +743,6 @@ function SortHead({
       </button>
     </TableHead>
   );
-}
-
-function compareListings(left: ListingPreview, right: ListingPreview, key: SortKey, dir: SortDir) {
-  const a = sortValue(left, key);
-  const b = sortValue(right, key);
-  if (a == null && b == null) return 0;
-  if (a == null) return 1;
-  if (b == null) return -1;
-  let result = 0;
-  if (typeof a === "number" && typeof b === "number") result = a - b;
-  else result = String(a).localeCompare(String(b), "en", { numeric: true, sensitivity: "base" });
-  return dir === "asc" ? result : -result;
-}
-
-function sortValue(row: ListingPreview, key: SortKey): string | number | null {
-  switch (key) {
-    case "title":
-      return row.title?.trim() || row.street || null;
-    case "locality":
-      return row.localityName;
-    case "type":
-      return canonicalPropertyType(row.property_type);
-    case "beds":
-      return row.beds;
-    case "price":
-      return row.price;
-    case "price_per_sqm":
-      return row.price != null && row.sqm != null && row.sqm > 0 ? row.price / row.sqm : null;
-    case "sqm":
-      return row.sqm;
-    case "source":
-      return row.source;
-    case "last_seen":
-      return row.last_seen;
-    case "first_seen":
-      return row.first_seen;
-  }
 }
 
 function sortLabel(key: SortKey, dir: SortDir) {
