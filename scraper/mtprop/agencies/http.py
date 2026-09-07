@@ -65,6 +65,38 @@ def http_client() -> httpx.Client:
     return httpx.Client(headers=HEADERS, timeout=60.0, follow_redirects=True)
 
 
+def http_retries() -> int:
+    raw = os.environ.get("SCRAPE_HTTP_RETRIES")
+    return max(1, int(raw)) if raw else 4
+
+
+_RETRYABLE = (
+    httpx.ConnectError,
+    httpx.ReadTimeout,
+    httpx.WriteTimeout,
+    httpx.PoolTimeout,
+    httpx.RemoteProtocolError,
+    httpx.NetworkError,
+)
+
+
+def get(client: httpx.Client, url: str, **kwargs) -> httpx.Response:
+    attempts = http_retries()
+    delay = 1.0
+    last_exc: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            return client.get(url, **kwargs)
+        except _RETRYABLE as exc:
+            last_exc = exc
+            if attempt + 1 >= attempts:
+                break
+            time.sleep(delay)
+            delay = min(delay * 2, 8.0)
+    assert last_exc is not None
+    raise last_exc
+
+
 def page_limit(total_pages: int) -> int:
     cap = max_pages()
     return min(total_pages, cap) if cap else total_pages

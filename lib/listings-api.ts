@@ -61,6 +61,10 @@ export function buildListingsSearchParams(params: ListingsFetchParams): URLSearc
   return search;
 }
 
+export function listingsQueryKey(params: ListingsFetchParams): string[] {
+  return ["listings", buildListingsSearchParams(params).toString()];
+}
+
 export async function fetchListings(
   params: ListingsFetchParams,
   signal?: AbortSignal,

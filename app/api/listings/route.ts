@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
-import { areasForSlug, listingMatchesArea } from "@/lib/areas";
-import { paginate } from "@/lib/db/paginate";
-import { getActiveListingsPage, getListingFacets, getLocalities } from "@/lib/data";
+import { areasForSlug } from "@/lib/areas";
+import {
+  getCachedAreaCounts,
+  getCachedListingFacets,
+  getCachedListingsPage,
+} from "@/lib/cached-data";
+import { getLocalities } from "@/lib/data";
 import { parsePriceParam, parseSortParam } from "@/lib/listings-filter";
 import { toFilterLocality, toListingPreviews } from "@/lib/listing-preview";
-import { supabaseAdmin, supabaseConfigured } from "@/lib/supabase/server";
+import { supabaseConfigured } from "@/lib/supabase/server";
 
 const UI_PAGE_SIZE = 50;
+const LISTINGS_CACHE_CONTROL = "public, s-maxage=900, stale-while-revalidate=3600";
 
 export async function GET(request: Request) {
   if (!supabaseConfigured()) {
@@ -52,67 +57,35 @@ export async function GET(request: Request) {
   };
 
   const [result, facets] = await Promise.all([
-    getActiveListingsPage(queryInput, localities),
-    includeFacets ? getListingFacets(source) : Promise.resolve(null),
+    getCachedListingsPage(queryInput),
+    includeFacets ? getCachedListingFacets(source) : Promise.resolve(null),
   ]);
 
   let areaCounts: { area: string; count: number }[] | undefined;
   if (includeFacets && localityId) {
-    areaCounts = await getAreaCounts(localityId, source, localities);
+    const locality = localities.find((row) => row.id === localityId);
+    areaCounts = await getCachedAreaCounts(localityId, source, areasForSlug(locality?.slug));
   }
 
-  return NextResponse.json({
-    listings: toListingPreviews(result.listings, localities),
-    localities: includeFacets ? localities.map(toFilterLocality) : undefined,
-    facets: facets
-      ? {
-          ...facets,
-          areaCounts,
-        }
-      : null,
-    page: result.page,
-    pageSize: result.pageSize,
-    total: result.total,
-    hasMore: result.hasMore,
-  });
-}
-
-async function getAreaCounts(
-  localityId: string,
-  source: string | undefined,
-  localities: Awaited<ReturnType<typeof getLocalities>>,
-) {
-  const supabase = supabaseAdmin();
-  if (!supabase) return [];
-
-  const locality = localities.find((row) => row.id === localityId);
-  const names = new Set(areasForSlug(locality?.slug));
-
-  type AreaRow = { area: string | null; title: string | null; street: string | null; source: string };
-  const rows = await paginate<AreaRow>((from, to) =>
-    supabase
-      .from("listings")
-      .select("area, title, street, source")
-      .eq("is_active", true)
-      .gt("price", 0)
-      .eq("locality_id", localityId)
-      .order("id", { ascending: true })
-      .range(from, to),
+  return NextResponse.json(
+    {
+      listings: toListingPreviews(result.listings, localities),
+      localities: includeFacets ? localities.map(toFilterLocality) : undefined,
+      facets: facets
+        ? {
+            ...facets,
+            areaCounts,
+          }
+        : null,
+      page: result.page,
+      pageSize: result.pageSize,
+      total: result.total,
+      hasMore: result.hasMore,
+    },
+    {
+      headers: {
+        "Cache-Control": LISTINGS_CACHE_CONTROL,
+      },
+    },
   );
-
-  for (const row of rows) {
-    if (row.area) names.add(row.area);
-  }
-
-  const counts: { area: string; count: number }[] = [];
-  for (const name of names) {
-    let count = 0;
-    for (const row of rows) {
-      if (source && source !== "all" && row.source !== source) continue;
-      if (listingMatchesArea(row, name)) count += 1;
-    }
-    if (count) counts.push({ area: name, count });
-  }
-
-  return counts.sort((left, right) => left.area.localeCompare(right.area, "en"));
 }

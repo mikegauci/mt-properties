@@ -10,7 +10,7 @@ from ..features import amenities_from_text
 from ..images import from_card
 from ..localities import locality_rows
 from .html_pages import yield_paginated_pages
-from .http import http_client, page_limit, sleep
+from .http import get, http_client, page_limit, sleep
 from .. import log
 
 SOURCE = "propertymarket"
@@ -22,7 +22,7 @@ SEARCH = (
 
 def fetch() -> Iterator[dict]:
     with http_client() as http:
-        first = http.get(SEARCH.format(page=1))
+        first = get(http, SEARCH.format(page=1))
         first.raise_for_status()
         soup = BeautifulSoup(first.text, "lxml")
         capped = page_limit(_last_page(soup))
@@ -33,7 +33,7 @@ def fetch() -> Iterator[dict]:
 def _fetch_page(page: int) -> list[dict]:
     sleep()
     with http_client() as http:
-        response = http.get(SEARCH.format(page=page))
+        response = get(http, SEARCH.format(page=page))
         response.raise_for_status()
         return list(_cards(BeautifulSoup(response.text, "lxml")))
 

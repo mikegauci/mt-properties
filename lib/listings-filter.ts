@@ -168,14 +168,7 @@ export function sortListings<T extends ListingFilterRow>(
 }
 
 export function needsClientSideProcessing(input: ListingsFilterInput): boolean {
-  return Boolean(
-    input.area ||
-      (input.propertyType && input.propertyType !== "all") ||
-      (input.excludeTypes && input.excludeTypes.length > 0) ||
-      input.q?.trim() ||
-      input.sortKey === "locality" ||
-      input.sortKey === "type",
-  );
+  return Boolean(input.q?.trim());
 }
 
 export function parseSortParam(value: string | null | undefined): { sortKey: SortKey; sortDir: SortDir } {

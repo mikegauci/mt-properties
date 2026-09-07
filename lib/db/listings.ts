@@ -9,6 +9,7 @@ import {
   type SortKey,
 } from "@/lib/listings-filter";
 import { toListingPreviews } from "@/lib/listing-preview";
+import { propertyTypeOrFilter } from "@/lib/property-type-sql";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { canonicalPropertyType, type ListingRow, type Locality } from "@/lib/types";
 import type { AskingListing } from "@/lib/year-compare";
@@ -30,6 +31,7 @@ const SQL_SORT_COLUMNS: Partial<Record<SortKey, string>> = {
   last_seen: "last_seen",
   first_seen: "first_seen",
   price_per_sqm: "price_per_sqm",
+  type: "property_type",
 };
 
 export type ListingsPageInput = ListingsFilterInput & {
@@ -43,24 +45,54 @@ export type ListingFacets = {
   propertyTypes: { type: string; count: number }[];
 };
 
+function isMissingRpc(error: { code?: string } | null) {
+  return error?.code === "PGRST202";
+}
+
+function escapeFilterValue(value: string) {
+  return value.replace(/[%_]/g, "");
+}
+
 function applyDbFilters(query: any, input: ListingsFilterInput) {
   let next = query;
   if (input.source && input.source !== "all") next = next.eq("source", input.source);
   if (input.localityId) next = next.eq("locality_id", input.localityId);
   if (input.priceMin != null) next = next.gte("price", input.priceMin);
   if (input.priceMax != null) next = next.lte("price", input.priceMax);
+  if (input.propertyType && input.propertyType !== "all") {
+    next = next.or(propertyTypeOrFilter(input.propertyType));
+  }
+  if (input.excludeTypes?.length) {
+    for (const excluded of input.excludeTypes) {
+      next = next.not("or", `(${propertyTypeOrFilter(excluded)})`);
+    }
+  }
+  if (input.area) {
+    const pattern = `%${escapeFilterValue(input.area)}%`;
+    next = next.or(`area.ilike.${pattern},title.ilike.${pattern},street.ilike.${pattern}`);
+  }
   const tokens = (input.q ?? "").trim().split(/\s+/).filter(Boolean);
   for (const token of tokens) {
-    const pattern = `%${token.replace(/[%_]/g, "")}%`;
+    const pattern = `%${escapeFilterValue(token)}%`;
     next = next.or(`title.ilike.${pattern},street.ilike.${pattern},area.ilike.${pattern}`);
   }
   return next;
 }
 
 function applySqlSort(query: any, sortKey: SortKey = "last_seen", sortDir: SortDir = "desc") {
-  const column = SQL_SORT_COLUMNS[sortKey] ?? "last_seen";
   const ascending = sortDir === "asc";
+  if (sortKey === "locality") {
+    return query
+      .order("name_en", { ascending, foreignTable: "localities", nullsFirst: false })
+      .order("id", { ascending });
+  }
+  const column = SQL_SORT_COLUMNS[sortKey] ?? "last_seen";
   return query.order(column, { ascending, nullsFirst: false }).order("id", { ascending });
+}
+
+function listingsSelectQuery(sortKey: SortKey) {
+  if (sortKey === "locality") return `${LISTING_COLUMNS},localities(name_en)`;
+  return LISTING_COLUMNS;
 }
 
 export type AskingStats = {
@@ -152,11 +184,13 @@ export async function getActiveListingsPage(
 
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
-  let query = supabase
+  let query: any = supabase
     .from("listings")
-    .select(LISTING_COLUMNS, { count: "exact" })
-    .eq("is_active", true)
-    .gt("price", 0);
+    .select(listingsSelectQuery(sortKey), { count: "exact" });
+  query = query.eq("is_active", true).gt("price", 0);
+  if (sortKey === "locality") {
+    query = query.not("locality_id", "is", null);
+  }
   query = applyDbFilters(query, input);
   query = applySqlSort(query, sortKey, sortDir);
   query = query.range(from, to);
@@ -169,8 +203,9 @@ export async function getActiveListingsPage(
   }
   const total = count ?? 0;
   const batchSize = data?.length ?? 0;
+  const rows = (data ?? []) as unknown as ListingRow[];
   return {
-    listings: uniqueById((data ?? []) as ListingRow[]),
+    listings: uniqueById(rows),
     total,
     page,
     pageSize,
@@ -179,6 +214,54 @@ export async function getActiveListingsPage(
 }
 
 export async function getListingFacets(source?: string): Promise<ListingFacets> {
+  const supabase = supabaseAdmin();
+  if (!supabase) return { sourceCounts: [], localityCounts: {}, propertyTypes: [] };
+
+  const sourceFilter = source && source !== "all" ? source : null;
+  const [sourceResult, localityResult, typeResult] = await Promise.all([
+    supabase.rpc("listing_source_facets", { p_source: sourceFilter }),
+    supabase.rpc("listing_locality_facets", { p_source: sourceFilter }),
+    supabase.rpc("listing_property_type_facets", { p_source: sourceFilter }),
+  ]);
+
+  if (
+    isMissingRpc(sourceResult.error) ||
+    isMissingRpc(localityResult.error) ||
+    isMissingRpc(typeResult.error)
+  ) {
+    return getListingFacetsFallback(source);
+  }
+  if (sourceResult.error) throw sourceResult.error;
+  if (localityResult.error) throw localityResult.error;
+  if (typeResult.error) throw typeResult.error;
+
+  const localityCounts: Record<string, number> = {};
+  for (const row of localityResult.data ?? []) {
+    if (row.locality_id) {
+      localityCounts[row.locality_id] = Number(row.count);
+    }
+  }
+
+  const typeCounts = new Map<string, number>();
+  for (const row of typeResult.data ?? []) {
+    const canonical = canonicalPropertyType(row.property_type);
+    if (!canonical) continue;
+    typeCounts.set(canonical, (typeCounts.get(canonical) ?? 0) + Number(row.count));
+  }
+
+  return {
+    sourceCounts: (sourceResult.data ?? []).map((row: { source: string; count: number }) => ({
+      source: row.source,
+      count: Number(row.count),
+    })),
+    localityCounts,
+    propertyTypes: [...typeCounts.entries()]
+      .sort(([left], [right]) => left.localeCompare(right, "en"))
+      .map(([type, count]) => ({ type, count })),
+  };
+}
+
+async function getListingFacetsFallback(source?: string): Promise<ListingFacets> {
   const supabase = supabaseAdmin();
   if (!supabase) return { sourceCounts: [], localityCounts: {}, propertyTypes: [] };
 
@@ -216,6 +299,76 @@ export async function getListingFacets(source?: string): Promise<ListingFacets> 
       .sort(([left], [right]) => left.localeCompare(right, "en"))
       .map(([type, count]) => ({ type, count })),
   };
+}
+
+export async function getAreaCounts(
+  localityId: string,
+  source: string | undefined,
+  catalogAreas: string[],
+): Promise<{ area: string; count: number }[]> {
+  const supabase = supabaseAdmin();
+  if (!supabase) return [];
+
+  const sourceFilter = source && source !== "all" ? source : null;
+  const { data, error } = await supabase.rpc("listing_area_counts", {
+    p_locality_id: localityId,
+    p_source: sourceFilter,
+  });
+  if (isMissingRpc(error)) {
+    return getAreaCountsFallback(localityId, source, catalogAreas);
+  }
+  if (error) throw error;
+
+  const counts = new Map<string, number>();
+  for (const name of catalogAreas) {
+    counts.set(name, 0);
+  }
+  for (const row of data ?? []) {
+    if (row.area) counts.set(row.area, Number(row.count));
+  }
+
+  return [...counts.entries()]
+    .filter(([, count]) => count > 0)
+    .map(([area, count]) => ({ area, count }))
+    .sort((left, right) => left.area.localeCompare(right.area, "en"));
+}
+
+async function getAreaCountsFallback(
+  localityId: string,
+  source: string | undefined,
+  catalogAreas: string[],
+): Promise<{ area: string; count: number }[]> {
+  const supabase = supabaseAdmin();
+  if (!supabase) return [];
+
+  type AreaRow = { area: string | null };
+  const rows = await paginate<AreaRow>((from, to) => {
+    let query = supabase
+      .from("listings")
+      .select("area")
+      .eq("is_active", true)
+      .gt("price", 0)
+      .eq("locality_id", localityId)
+      .not("area", "is", null)
+      .order("id", { ascending: true });
+    if (source && source !== "all") query = query.eq("source", source);
+    return query.range(from, to);
+  });
+
+  const counts = new Map<string, number>();
+  for (const name of catalogAreas) {
+    counts.set(name, 0);
+  }
+  for (const row of rows) {
+    const area = row.area?.trim();
+    if (!area) continue;
+    counts.set(area, (counts.get(area) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .filter(([, count]) => count > 0)
+    .map(([area, count]) => ({ area, count }))
+    .sort((left, right) => left.area.localeCompare(right.area, "en"));
 }
 
 export function askingStats(listings: Pick<ListingRow, "price" | "sqm">[]): AskingStats {
@@ -313,6 +466,47 @@ export async function getActiveListingStats(): Promise<{
   };
   const supabase = supabaseAdmin();
   if (!supabase) return { stats: empty, counts: [] };
+
+  const [statsResult, countsResult] = await Promise.all([
+    supabase.rpc("listing_asking_stats"),
+    supabase.rpc("listing_source_counts_agg"),
+  ]);
+  if (isMissingRpc(statsResult.error) || isMissingRpc(countsResult.error)) {
+    return getActiveListingStatsFallback();
+  }
+  if (statsResult.error) throw statsResult.error;
+  if (countsResult.error) throw countsResult.error;
+
+  const row = statsResult.data?.[0];
+  const stats: AskingStats = row
+    ? {
+        sample: Number(row.sample ?? 0),
+        medianPrice: row.median_price != null ? Number(row.median_price) : null,
+        medianPerSqm: row.median_per_sqm != null ? Number(row.median_per_sqm) : null,
+        p25PerSqm: row.p25_per_sqm != null ? Number(row.p25_per_sqm) : null,
+        p75PerSqm: row.p75_per_sqm != null ? Number(row.p75_per_sqm) : null,
+      }
+    : empty;
+
+  const counts = (countsResult.data ?? []).map((entry: { source: string; count: number }) => ({
+    source: entry.source,
+    count: Number(entry.count),
+  }));
+
+  return { stats, counts };
+}
+
+async function getActiveListingStatsFallback(): Promise<{
+  stats: AskingStats;
+  counts: { source: string; count: number }[];
+}> {
+  const supabase = supabaseAdmin();
+  if (!supabase) {
+    return {
+      stats: { sample: 0, medianPrice: null, medianPerSqm: null, p25PerSqm: null, p75PerSqm: null },
+      counts: [],
+    };
+  }
   type StatsRow = { price: number | null; sqm: number | null; source: string };
   const rows = await paginate<StatsRow>((from, to) =>
     supabase
@@ -333,7 +527,30 @@ export async function getActiveListingStats(): Promise<{
 export async function getAskingListingsForCompare(): Promise<AskingListing[]> {
   const supabase = supabaseAdmin();
   if (!supabase) return [];
-  type Row = { locality_id: string | null; property_type: string | null; price: number | null; area: string | null };
+  const { data, error } = await supabase.rpc("listing_asking_compare_rows");
+  if (isMissingRpc(error)) {
+    return getAskingListingsForCompareFallback();
+  }
+  if (error) throw error;
+  return (data ?? []).map(
+    (row: { locality_id: string | null; property_type: string | null; price: number | null; area: string | null }) => ({
+      localityId: row.locality_id,
+      propertyType: row.property_type,
+      price: row.price,
+      area: row.area,
+    }),
+  );
+}
+
+async function getAskingListingsForCompareFallback(): Promise<AskingListing[]> {
+  const supabase = supabaseAdmin();
+  if (!supabase) return [];
+  type Row = {
+    locality_id: string | null;
+    property_type: string | null;
+    price: number | null;
+    area: string | null;
+  };
   const rows = await paginate<Row>((from, to) =>
     supabase
       .from("listings")

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown, ImageIcon, LayoutGrid, LayoutList, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { FilterCombobox } from "@/components/filter-combobox";
 import { sourceTheme, typeBadgeClass } from "@/components/listing-theme";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchListings, type ListingsFacets } from "@/lib/listings-api";
+import { fetchListings, listingsQueryKey } from "@/lib/listings-api";
 import type { SortDir, SortKey } from "@/lib/listings-filter";
 import { eur, compactNumber, displayTypeLabel, typeLabel } from "@/lib/format";
 import { localityRegion, REGION_LABELS, REGIONS } from "@/lib/regions";
@@ -57,14 +58,6 @@ const SORT_PRESETS: { value: `${SortKey}:${SortDir}`; label: string }[] = [
 ];
 
 export function ListingsTable() {
-  const [listings, setListings] = useState<ListingPreview[]>([]);
-  const [localities, setLocalities] = useState<FilterLocality[]>([]);
-  const [facets, setFacets] = useState<ListingsFacets | null>(null);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
-
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [source, setSource] = useState<string>("all");
@@ -85,70 +78,55 @@ export function ListingsTable() {
     return () => clearTimeout(timer);
   }, [query]);
 
+  const fetchParams = useMemo(
+    () => ({
+      page,
+      pageSize,
+      sortKey,
+      sortDir,
+      source,
+      localityId,
+      area,
+      propertyType,
+      excludePropertyTypes,
+      q: debouncedQuery,
+      priceFrom,
+      priceTo,
+      facets: true as const,
+    }),
+    [
+      page,
+      pageSize,
+      sortKey,
+      sortDir,
+      source,
+      localityId,
+      area,
+      propertyType,
+      excludePropertyTypes,
+      debouncedQuery,
+      priceFrom,
+      priceTo,
+    ],
+  );
+
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: listingsQueryKey(fetchParams),
+    queryFn: ({ signal }) => fetchListings(fetchParams, signal),
+    placeholderData: (previous) => previous,
+  });
+
+  const listings = data?.listings ?? [];
+  const localities = data?.localities ?? [];
+  const facets = data?.facets ?? null;
+  const total = data?.total ?? 0;
+  const loading = isLoading;
+  const errorMessage = error instanceof Error ? error.message : error ? "Could not load listings" : null;
+
   useEffect(() => {
     const maxPage = Math.max(1, Math.ceil(total / pageSize));
     if (page > maxPage) setPage(maxPage);
   }, [total, pageSize, page]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await fetchListings(
-          {
-            page,
-            pageSize,
-            sortKey,
-            sortDir,
-            source,
-            localityId,
-            area,
-            propertyType,
-            excludePropertyTypes,
-            q: debouncedQuery,
-            priceFrom,
-            priceTo,
-            facets: true,
-          },
-          controller.signal,
-        );
-        if (cancelled) return;
-        setListings(data.listings);
-        setTotal(data.total);
-        if (data.localities?.length) setLocalities(data.localities);
-        if (data.facets) setFacets(data.facets);
-      } catch (err) {
-        if (cancelled || controller.signal.aborted) return;
-        setError(err instanceof Error ? err.message : "Could not load listings");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [
-    page,
-    pageSize,
-    sortKey,
-    sortDir,
-    source,
-    localityId,
-    area,
-    propertyType,
-    excludePropertyTypes,
-    debouncedQuery,
-    priceFrom,
-    priceTo,
-    attempt,
-  ]);
 
   const sources = useMemo(
     () => facets?.sourceCounts.map((row) => row.source) ?? [],
@@ -307,16 +285,15 @@ export function ListingsTable() {
     ? sortPresetValue
     : "last_seen:desc";
 
-  if (error && !localities.length) {
+  if (errorMessage && !localities.length) {
     return (
       <div className="space-y-2">
-        <p className="text-muted-foreground text-sm">{error}</p>
+        <p className="text-muted-foreground text-sm">{errorMessage}</p>
         <button
           type="button"
           className="text-sky-700 text-sm underline underline-offset-2"
           onClick={() => {
-            setError(null);
-            setAttempt((value) => value + 1);
+            void refetch();
           }}
         >
           Try again
@@ -569,7 +546,7 @@ export function ListingsTable() {
         </div>
       </div>
 
-      <div className={cn("space-y-4 transition-opacity", loading && localities.length ? "opacity-60" : "")}>
+      <div className={cn("space-y-4 transition-opacity", isFetching && localities.length ? "opacity-60" : "")}>
       <div className="md:hidden">
         {mobileView === "grid" ? (
           <div className="grid grid-cols-2 gap-2.5">

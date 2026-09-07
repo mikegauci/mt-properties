@@ -12,6 +12,7 @@ export {
   getActiveListings,
   getActiveListingsPage,
   getActiveListingStats,
+  getAreaCounts,
   getAskingListingsForCompare,
   getListingCounts,
   getListingFacets,

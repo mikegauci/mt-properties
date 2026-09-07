@@ -1,5 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 import * as data from "@/lib/data";
+import type { ListingsPageInput } from "@/lib/db/listings";
 
 export async function getCachedLocalities() {
   "use cache";
@@ -87,4 +88,30 @@ export async function getCachedAskingListingsForCompare() {
   cacheTag("listings");
   cacheLife("listings");
   return data.getAskingListingsForCompare();
+}
+
+export async function getCachedListingsPage(input: ListingsPageInput) {
+  "use cache";
+  cacheTag("listings");
+  cacheLife("listings");
+  const localities = await data.getLocalities();
+  return data.getActiveListingsPage(input, localities);
+}
+
+export async function getCachedListingFacets(source?: string) {
+  "use cache";
+  cacheTag("listings");
+  cacheLife("listings");
+  return data.getListingFacets(source);
+}
+
+export async function getCachedAreaCounts(
+  localityId: string,
+  source: string | undefined,
+  catalogAreas: string[],
+) {
+  "use cache";
+  cacheTag("listings");
+  cacheLife("listings");
+  return data.getAreaCounts(localityId, source, catalogAreas);
 }
