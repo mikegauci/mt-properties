@@ -26,6 +26,7 @@ import { canonicalPropertyType, type ListingRow } from "@/lib/types";
 export type ListingPreview = ListingRow & {
   localityName: string | null;
   localitySlug: string | null;
+  alsoOnSources: string[];
 };
 
 export type FilterLocality = {
@@ -631,9 +632,12 @@ export function ListingsTable() {
                   {eur(listing.price)}
                 </TableCell>
                 <TableCell>
-                  <span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs font-medium", theme.badge)}>
-                    {theme.label}
-                  </span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className={cn("inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium", theme.badge)}>
+                      {theme.label}
+                    </span>
+                    <AlsoOnSources sources={listing.alsoOnSources} />
+                  </div>
                 </TableCell>
                 <TableCell className="text-muted-foreground whitespace-nowrap">
                   {seenLabel(listing.last_seen)}
@@ -771,6 +775,21 @@ function seenLabel(value: string) {
   return date.toLocaleDateString("en-MT", { day: "numeric", month: "short" });
 }
 
+function alsoOnLabel(sources: string[]) {
+  if (!sources.length) return null;
+  return sources.map((source) => sourceTheme(source).label).join(", ");
+}
+
+function AlsoOnSources({ sources }: { sources: string[] }) {
+  const label = alsoOnLabel(sources);
+  if (!label) return null;
+  return (
+    <span className="text-muted-foreground text-[10px] leading-tight" title={`Also listed on ${label}`}>
+      Also on {label}
+    </span>
+  );
+}
+
 function ListingGridCard({ listing }: { listing: ListingPreview }) {
   const theme = sourceTheme(listing.source);
   const title = listing.title?.trim() || listing.street || "View listing";
@@ -806,11 +825,14 @@ function ListingGridCard({ listing }: { listing: ListingPreview }) {
             </span>
           ) : null}
         </div>
-        <div className="mt-auto flex min-w-0 flex-wrap items-center justify-between gap-1 pt-0.5">
-          <span className={cn("inline-flex max-w-full rounded-full px-1.5 py-0.5 text-[10px] leading-tight font-medium break-words", theme.badge)}>
-            {theme.label}
-          </span>
-          <span className="text-muted-foreground shrink-0 text-[10px]">{seenLabel(listing.last_seen)}</span>
+        <div className="mt-auto flex min-w-0 flex-col gap-0.5 pt-0.5">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-1">
+            <span className={cn("inline-flex max-w-full rounded-full px-1.5 py-0.5 text-[10px] leading-tight font-medium break-words", theme.badge)}>
+              {theme.label}
+            </span>
+            <span className="text-muted-foreground shrink-0 text-[10px]">{seenLabel(listing.last_seen)}</span>
+          </div>
+          <AlsoOnSources sources={listing.alsoOnSources} />
         </div>
       </div>
     </article>
@@ -847,15 +869,18 @@ function ListingListCard({ listing }: { listing: ListingPreview }) {
           )}
           {listing.area ? <span className="text-muted-foreground block break-words">{listing.area}</span> : null}
         </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <TypeBadge propertyType={listing.property_type} compact />
-          {listing.beds != null ? (
-            <span className="text-muted-foreground text-xs tabular-nums">{listing.beds} bed{listing.beds === 1 ? "" : "s"}</span>
-          ) : null}
-          <span className={cn("inline-flex max-w-full rounded-full px-2 py-0.5 text-[11px] leading-tight font-medium break-words", theme.badge)}>
-            {theme.label}
-          </span>
-          <span className="text-muted-foreground ml-auto text-[11px]">{seenLabel(listing.last_seen)}</span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <TypeBadge propertyType={listing.property_type} compact />
+            {listing.beds != null ? (
+              <span className="text-muted-foreground text-xs tabular-nums">{listing.beds} bed{listing.beds === 1 ? "" : "s"}</span>
+            ) : null}
+            <span className={cn("inline-flex max-w-full rounded-full px-2 py-0.5 text-[11px] leading-tight font-medium break-words", theme.badge)}>
+              {theme.label}
+            </span>
+            <span className="text-muted-foreground ml-auto text-[11px]">{seenLabel(listing.last_seen)}</span>
+          </div>
+          <AlsoOnSources sources={listing.alsoOnSources} />
         </div>
       </div>
     </article>

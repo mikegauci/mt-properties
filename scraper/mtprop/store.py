@@ -5,7 +5,8 @@ from typing import Any, Iterable
 
 from .agencies.http import max_pages
 from .config import client
-from .localities import fetch_locality_ids, fingerprint, match_area, match_locality, normalize_type
+from .localities import fetch_locality_ids, fingerprint, match_area, match_block, match_locality, normalize_type
+from .supabase_rows import FLUSH_SIZE, all_rows as _all_rows, chunks
 
 
 def parse_number(value: Any) -> float | None:
@@ -270,9 +271,6 @@ def _touch_last_seen(http, listing_ids: list[str], now: str) -> None:
             raise RuntimeError(f"last_seen touch failed: {patch.text}")
 
 
-FLUSH_SIZE = 80
-
-
 class ListingSink:
     def __init__(self, source: str):
         self.source = source
@@ -350,6 +348,13 @@ class ListingSink:
             if image_url:
                 row["image_url"] = image_url
             row["area"] = listing_area(slug, item)
+            row["match_block"] = match_block(
+                row["locality_id"],
+                property_type,
+                row["beds"],
+                sqm,
+                row["area"],
+            )
             for key in OPTIONAL_KEYS:
                 if key == "ext_sqm":
                     continue
@@ -445,6 +450,7 @@ def _drop_url_dupes(
 
 def _post_listing_rows(http, source: str, rows: list[dict[str, Any]], now: str) -> int:
     upserted = 0
+    saved_rows: list[dict[str, Any]] = []
     for chunk in chunks(rows, FLUSH_SIZE):
         existing_by_ext = _existing(http, source, [row["external_id"] for row in chunk])
         new_rows: list[dict[str, Any]] = []
@@ -459,7 +465,7 @@ def _post_listing_rows(http, source: str, rows: list[dict[str, Any]], now: str) 
             for batch in uniform_key_chunks(group, FLUSH_SIZE):
                 response = http.post(
                     "/listings",
-                    params={"on_conflict": "source,external_id", "select": "id,external_id,price"},
+                    params={"on_conflict": "source,external_id", "select": "id,external_id,price,property_id"},
                     headers={"prefer": "resolution=merge-duplicates,return=representation"},
                     json=batch,
                 )
@@ -467,6 +473,7 @@ def _post_listing_rows(http, source: str, rows: list[dict[str, Any]], now: str) 
                     raise RuntimeError(f"Listing upsert failed: {response.status_code} {response.text}")
                 saved = response.json()
                 upserted += len(saved)
+                saved_rows.extend(saved)
                 snapshots = []
                 for saved_row in saved:
                     previous = existing_by_ext.get(saved_row["external_id"])
@@ -488,6 +495,21 @@ def _post_listing_rows(http, source: str, rows: list[dict[str, Any]], now: str) 
                     )
                     if snap.status_code >= 300:
                         raise RuntimeError(f"Snapshot insert failed: {snap.text}")
+    unlinked = [
+        row for row in rows
+        if any(
+            saved.get("external_id") == row["external_id"] and not saved.get("property_id")
+            for saved in saved_rows
+        )
+    ]
+    if unlinked:
+        from .property_match import assign_properties_for_rows
+
+        linked_saved = [
+            saved for saved in saved_rows
+            if any(saved.get("external_id") == row["external_id"] for row in unlinked)
+        ]
+        assign_properties_for_rows(http, unlinked, linked_saved)
     return upserted
 
 
@@ -538,35 +560,6 @@ def _existing(http, source: str, external_ids: list[str]) -> dict[str, dict[str,
         for row in response.json():
             found[row["external_id"]] = row
     return found
-
-
-def _all_rows(http, path: str, params: dict[str, str]) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    page = 1000
-    start = 0
-    while True:
-        response = http.get(
-            path,
-            params=params,
-            headers={"range": f"{start}-{start + page - 1}", "prefer": "count=exact"},
-        )
-        if response.status_code >= 300:
-            raise RuntimeError(f"Listing page failed: {response.status_code} {response.text}")
-        batch = response.json()
-        if not isinstance(batch, list):
-            raise RuntimeError(f"Unexpected listings payload: {batch}")
-        rows.extend(batch)
-        if len(batch) < page:
-            break
-        start += page
-        if start > 200000:
-            break
-    return rows
-
-
-def chunks(items: list[Any], size: int) -> Iterable[list[Any]]:
-    for i in range(0, len(items), size):
-        yield items[i : i + size]
 
 
 def uniform_key_chunks(rows: list[dict[str, Any]], size: int) -> Iterable[list[dict[str, Any]]]:

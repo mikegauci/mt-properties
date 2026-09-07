@@ -156,10 +156,36 @@ def normalize_type(raw: str | None) -> str | None:
     return underscored
 
 
+def sqm_bucket(sqm: float | None) -> int:
+    if not sqm:
+        return 0
+    return int(round(float(sqm) / 10) * 10)
+
+
+def area_slug(area: str | None) -> str:
+    if not area:
+        return "na"
+    folded = fold_area(area).replace(" ", "-")
+    return folded or "na"
+
+
+def match_block(
+    locality_id: str | None,
+    property_type: str | None,
+    beds: int | None,
+    sqm: float | None,
+    area: str | None,
+) -> str | None:
+    if not locality_id or not property_type:
+        return None
+    beds_part = str(beds) if beds is not None else "na"
+    return f"{locality_id}|{property_type}|{beds_part}|{sqm_bucket(sqm)}|{area_slug(area)}"
+
+
 def fingerprint(locality_slug: str | None, property_type: str | None, sqm: float | None, street: str | None) -> str | None:
     if not locality_slug or not property_type:
         return None
-    rounded = int(round(float(sqm) / 10) * 10) if sqm else 0
+    rounded = sqm_bucket(sqm)
     tokens = [t for t in fold(street or "").split() if len(t) > 2][:2]
     street_part = "-".join(tokens) if tokens else "na"
     return f"{locality_slug}|{property_type}|{rounded}|{street_part}"

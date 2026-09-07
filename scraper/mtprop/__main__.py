@@ -10,15 +10,8 @@ from . import nso
 from .agencies import facebook, propertymarket, remax, zanzi
 from . import log
 from .agencies.http import INCREMENTAL_PAGES, reset_max_pages, scrape_full, use_max_pages
-from .store import (
-    FLUSH_SIZE,
-    ListingSink,
-    backfill_listing_areas,
-    finish_run,
-    missing_image_rows,
-    source_ready_for_incremental,
-    start_run,
-)
+from .property_match import run_match_properties
+from .store import FLUSH_SIZE, ListingSink, backfill_listing_areas, finish_run, missing_image_rows, source_ready_for_incremental, start_run
 from . import images_backfill
 
 AGENCIES = {
@@ -50,6 +43,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Log each listing (or set SCRAPE_VERBOSE=1)",
     )
     sub.add_parser("backfill-areas", help="Set listings.area from stored Town/Zone/title")
+    sub.add_parser("match-properties", help="Cluster listings into canonical properties")
     images = sub.add_parser("backfill-images", help="Fill missing listing thumbnails from stored URLs")
     images.add_argument("--source", choices=[*AGENCIES, "all"], default="all")
     images.add_argument(
@@ -70,6 +64,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "backfill-areas":
         updated = backfill_listing_areas()
         print({"areas_updated": updated})
+        return 0
+
+    if args.command == "match-properties":
+        result = run_match_properties()
+        print(result)
         return 0
 
     if args.command == "backfill-images":

@@ -52,6 +52,9 @@ export type ListingRow = {
   last_seen: string;
   is_active: boolean;
   fingerprint: string | null;
+  property_id: string | null;
+  match_block: string | null;
+  sibling_sources?: string[];
 };
 
 export type ScrapeRun = {

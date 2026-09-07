@@ -15,7 +15,9 @@ import { canonicalPropertyType, type ListingRow, type Locality } from "@/lib/typ
 import type { AskingListing } from "@/lib/year-compare";
 
 export const LISTING_COLUMNS =
-  "id, source, external_id, url, locality_id, street, area, property_type, beds, sqm, ext_sqm, price, title, image_url, finish, has_garage, has_pool, has_lift, first_seen, last_seen, is_active, fingerprint";
+  "id, source, external_id, url, locality_id, street, area, property_type, beds, sqm, ext_sqm, price, title, image_url, finish, has_garage, has_pool, has_lift, first_seen, last_seen, is_active, fingerprint, property_id, match_block";
+
+const DEDUPED_LISTINGS = "listings_deduped";
 
 const LISTING_SOURCES = ["remax", "propertymarket", "zanzi", "facebook"] as const;
 const LISTING_STATS_COLUMNS = "price, sqm, source";
@@ -47,6 +49,39 @@ export type ListingFacets = {
 
 function isMissingRpc(error: { code?: string } | null) {
   return error?.code === "PGRST202";
+}
+
+async function siblingSourcesByPropertyId(propertyIds: string[]): Promise<Map<string, string[]>> {
+  const uniqueIds = [...new Set(propertyIds.filter(Boolean))];
+  const result = new Map<string, string[]>();
+  if (!uniqueIds.length) return result;
+
+  const supabase = supabaseAdmin();
+  if (!supabase) return result;
+
+  const { data, error } = await supabase.rpc("listing_sibling_sources", {
+    p_property_ids: uniqueIds,
+  });
+  if (isMissingRpc(error)) return result;
+  if (error) throw error;
+
+  for (const row of data ?? []) {
+    if (!row.property_id) continue;
+    result.set(row.property_id, (row.sources ?? []).map(String));
+  }
+  return result;
+}
+
+async function attachSiblingSources(listings: ListingRow[]): Promise<ListingRow[]> {
+  const propertyIds = listings.map((row) => row.property_id).filter(Boolean) as string[];
+  const siblings = await siblingSourcesByPropertyId(propertyIds);
+  if (!siblings.size) return listings;
+  return listings.map((listing) => {
+    if (!listing.property_id) return listing;
+    const sources = siblings.get(listing.property_id);
+    if (!sources?.length) return listing;
+    return { ...listing, sibling_sources: sources };
+  });
 }
 
 function escapeFilterValue(value: string) {
@@ -158,7 +193,7 @@ export async function getActiveListingsPage(
   if (needsClientSideProcessing(input)) {
     const rows = await paginate<ListingRow>((from, to) => {
       let query = supabase
-        .from("listings")
+        .from(DEDUPED_LISTINGS)
         .select(LISTING_COLUMNS)
         .eq("is_active", true)
         .gt("price", 0)
@@ -167,7 +202,8 @@ export async function getActiveListingsPage(
       query = applyDbFilters(query, input);
       return query.range(from, to);
     });
-    const previews = toListingPreviews(uniqueById(rows), localities);
+    const enriched = await attachSiblingSources(uniqueById(rows));
+    const previews = toListingPreviews(enriched, localities);
     const filtered = filterListings(previews, input, localities);
     const sorted = sortListings(filtered, sortKey, sortDir);
     const total = sorted.length;
@@ -185,8 +221,8 @@ export async function getActiveListingsPage(
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
   let query: any = supabase
-    .from("listings")
-    .select(listingsSelectQuery(sortKey), { count: "exact" });
+    .from(DEDUPED_LISTINGS)
+    .select(LISTING_COLUMNS, { count: "exact" });
   query = query.eq("is_active", true).gt("price", 0);
   if (sortKey === "locality") {
     query = query.not("locality_id", "is", null);
@@ -203,9 +239,9 @@ export async function getActiveListingsPage(
   }
   const total = count ?? 0;
   const batchSize = data?.length ?? 0;
-  const rows = (data ?? []) as unknown as ListingRow[];
+  const rows = await attachSiblingSources(uniqueById((data ?? []) as unknown as ListingRow[]));
   return {
-    listings: uniqueById(rows),
+    listings: rows,
     total,
     page,
     pageSize,

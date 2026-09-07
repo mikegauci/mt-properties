@@ -16,10 +16,12 @@ export function toListingPreviews(listings: ListingRow[], localities: Locality[]
   const localityById = new Map(localities.map((row) => [row.id, row]));
   return listings.map((listing) => {
     const locality = listing.locality_id ? localityById.get(listing.locality_id) : undefined;
+    const alsoOnSources = (listing.sibling_sources ?? []).filter((source) => source !== listing.source);
     return {
       ...listing,
       localityName: locality?.name_en ?? null,
       localitySlug: locality?.slug ?? null,
+      alsoOnSources,
     };
   });
 }
