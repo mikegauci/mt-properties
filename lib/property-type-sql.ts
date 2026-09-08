@@ -10,26 +10,34 @@ function escapeFilterValue(value: string) {
   return value.replace(/[%_]/g, "");
 }
 
+function postgrestFilterValue(value: string) {
+  const escaped = escapeFilterValue(value);
+  if (/[\s,]/.test(escaped)) {
+    return `"${escaped.replace(/"/g, '""')}"`;
+  }
+  return escaped;
+}
+
 export function propertyTypeOrFilter(canonical: string): string {
   const parts = new Set<string>();
-  parts.add(`property_type.eq.${escapeFilterValue(canonical)}`);
+  parts.add(`property_type.eq.${postgrestFilterValue(canonical)}`);
 
   for (const [alias, type] of Object.entries(propertyTypeConfig.aliases)) {
     if (type !== canonical) continue;
     const underscored = alias.toLowerCase().replaceAll(" ", "_");
-    parts.add(`property_type.eq.${escapeFilterValue(underscored)}`);
+    parts.add(`property_type.eq.${postgrestFilterValue(underscored)}`);
     if (alias.includes(" ")) {
-      parts.add(`property_type.eq.${escapeFilterValue(alias.toLowerCase())}`);
+      parts.add(`property_type.eq.${postgrestFilterValue(alias.toLowerCase())}`);
     }
   }
 
   for (const rule of propertyTypeConfig.prefixRules) {
     if (rule.type !== canonical) continue;
-    parts.add(`property_type.ilike.${escapeFilterValue(rule.prefix)}%`);
+    parts.add(`property_type.ilike.${postgrestFilterValue(rule.prefix)}*`);
   }
 
   if (canonical === "house_of_character") {
-    parts.add("property_type.ilike.%character%");
+    parts.add("property_type.ilike.*character*");
   }
 
   return [...parts].join(",");

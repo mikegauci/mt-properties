@@ -3,7 +3,7 @@ from __future__ import annotations
 import statistics
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 from .config import client
 from .localities import fold, fold_area, match_block
@@ -12,6 +12,8 @@ from .supabase_rows import FLUSH_SIZE, all_rows as _all_rows, chunks
 
 MATCH_THRESHOLD = 0.85
 SOURCE_PRIORITY = {"remax": 4, "propertymarket": 3, "zanzi": 2, "facebook": 1}
+MAX_RETRIES = 5
+RETRY_DELAY_SECONDS = 2.0
 
 MATCH_LISTING_COLUMNS = (
     "id,source,external_id,locality_id,property_type,beds,sqm,ext_sqm,street,area,"
@@ -221,39 +223,139 @@ def compute_match_block(row: dict[str, Any]) -> str | None:
     )
 
 
+def _request_with_retry(http, action: str, *args: Any, **kwargs: Any):
+    last_error: Exception | None = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            method: Callable[..., Any] = getattr(http, action)
+            response = method(*args, **kwargs)
+            if response.status_code < 300:
+                return response
+            if response.status_code >= 500 and attempt + 1 < MAX_RETRIES:
+                time.sleep(RETRY_DELAY_SECONDS * (attempt + 1))
+                continue
+            return response
+        except Exception as exc:
+            last_error = exc
+            if attempt + 1 >= MAX_RETRIES:
+                raise
+            time.sleep(RETRY_DELAY_SECONDS * (attempt + 1))
+    if last_error:
+        raise last_error
+    raise RuntimeError("Request failed without response")
+
+
 def _create_properties(http, payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not payloads:
         return []
-    response = http.post(
-        "/properties",
-        headers={"prefer": "return=representation"},
-        json=payloads,
-    )
-    if response.status_code >= 300:
-        raise RuntimeError(f"Property insert failed: {response.status_code} {response.text}")
-    return response.json()
-
-
-def _patch_listings(http, updates: list[tuple[str, str, str]]) -> None:
-    for listing_id, property_id, block_key in updates:
-        response = http.patch(
-            f"/listings?id=eq.{listing_id}",
-            json={"property_id": property_id, "match_block": block_key},
-            headers={"prefer": "return=minimal"},
+    created: list[dict[str, Any]] = []
+    for batch in chunks(payloads, FLUSH_SIZE):
+        response = _request_with_retry(
+            http,
+            "post",
+            "/properties",
+            headers={"prefer": "return=representation"},
+            json=batch,
         )
         if response.status_code >= 300:
-            raise RuntimeError(f"Listing property link failed: {response.status_code} {response.text}")
+            raise RuntimeError(f"Property insert failed: {response.status_code} {response.text}")
+        created.extend(response.json())
+    return created
+
+
+def _patch_listings(http, updates: list[tuple[str, str, str | None]]) -> None:
+    grouped: dict[tuple[str, str | None], list[str]] = {}
+    for listing_id, property_id, block_key in updates:
+        grouped.setdefault((property_id, block_key), []).append(listing_id)
+    for (property_id, block_key), listing_ids in grouped.items():
+        payload: dict[str, Any] = {"property_id": property_id}
+        if block_key is not None:
+            payload["match_block"] = block_key
+        for batch in chunks(listing_ids, FLUSH_SIZE):
+            filt = ",".join(batch)
+            response = _request_with_retry(
+                http,
+                "patch",
+                f"/listings?id=in.({filt})",
+                json=payload,
+                headers={"prefer": "return=minimal"},
+            )
+            if response.status_code >= 300:
+                raise RuntimeError(f"Listing property link failed: {response.status_code} {response.text}")
 
 
 def _patch_properties(http, updates: list[tuple[str, dict[str, Any]]]) -> None:
     for property_id, payload in updates:
-        response = http.patch(
+        response = _request_with_retry(
+            http,
+            "patch",
             f"/properties?id=eq.{property_id}",
             json=payload,
             headers={"prefer": "return=minimal"},
         )
         if response.status_code >= 300:
             raise RuntimeError(f"Property update failed: {response.status_code} {response.text}")
+
+
+def _match_cluster_to_existing(cluster: list[dict[str, Any]], linked: list[dict[str, Any]]) -> dict[str, Any] | None:
+    primary = pick_primary(cluster)
+    best: dict[str, Any] | None = None
+    best_score = MATCH_THRESHOLD
+    for candidate in linked:
+        score = score_pair(primary, candidate)
+        if score >= best_score:
+            best_score = score
+            best = candidate
+    return best
+
+
+def _process_block_clusters(
+    http,
+    block_key: str,
+    clusters: list[list[dict[str, Any]]],
+    linked: list[dict[str, Any]],
+) -> tuple[int, int, list[int]]:
+    properties_created = 0
+    listings_linked = 0
+    cluster_sizes: list[int] = []
+    listing_updates: list[tuple[str, str, str | None]] = []
+    property_payloads: list[dict[str, Any]] = []
+    cluster_property_ids: list[str | None] = []
+
+    for cluster in clusters:
+        cluster_sizes.append(len(cluster))
+        matched = _match_cluster_to_existing(cluster, linked) if linked else None
+        if matched and matched.get("property_id"):
+            property_id = str(matched["property_id"])
+            cluster_property_ids.append(property_id)
+            listing_updates.extend(
+                (str(row["id"]), property_id, block_key)
+                for row in cluster
+                if row.get("id")
+            )
+            continue
+        property_payloads.append(property_payload_from_cluster(cluster, block_key))
+        cluster_property_ids.append(None)
+
+    created = _create_properties(http, property_payloads)
+    created_index = 0
+    for index, cluster in enumerate(clusters):
+        property_id = cluster_property_ids[index]
+        if property_id:
+            listings_linked += len(cluster)
+            continue
+        property_id = created[created_index]["id"]
+        created_index += 1
+        properties_created += 1
+        listing_updates.extend(
+            (str(row["id"]), property_id, block_key)
+            for row in cluster
+            if row.get("id")
+        )
+        listings_linked += len(cluster)
+
+    _patch_listings(http, listing_updates)
+    return properties_created, listings_linked, cluster_sizes
 
 
 def _load_block_candidates(http, block_key: str, limit: int = 50) -> list[dict[str, Any]]:
@@ -331,17 +433,9 @@ def assign_properties_for_rows(http, rows: list[dict[str, Any]], saved: list[dic
         _patch_properties(http, list(property_updates.items()))
 
 
-def run_match_properties() -> dict[str, Any]:
+def run_match_properties(*, reset: bool = False) -> dict[str, Any]:
     started = time.monotonic()
     with client() as http:
-        reset = http.delete(
-            "/properties",
-            params={"id": "not.is.null"},
-            headers={"prefer": "return=minimal"},
-        )
-        if reset.status_code >= 300:
-            raise RuntimeError(f"Property reset failed: {reset.status_code} {reset.text}")
-
         rows = _all_rows(
             http,
             "/listings",
@@ -352,12 +446,36 @@ def run_match_properties() -> dict[str, Any]:
             },
         )
 
+        linked_before = sum(1 for row in rows if row.get("property_id"))
+        resume = linked_before > 0 and not reset
+        if reset or not resume:
+            reset_response = _request_with_retry(
+                http,
+                "delete",
+                "/properties",
+                params={"id": "not.is.null"},
+                headers={"prefer": "return=minimal"},
+            )
+            if reset_response.status_code >= 300:
+                raise RuntimeError(f"Property reset failed: {reset_response.status_code} {reset_response.text}")
+            for row in rows:
+                row["property_id"] = None
+
         for row in rows:
             row["match_block"] = compute_match_block(row)
 
+        rows_to_process = [row for row in rows if not row.get("property_id")] if resume else rows
+        linked_by_block: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            if not row.get("property_id"):
+                continue
+            block_key = row.get("match_block")
+            if block_key:
+                linked_by_block.setdefault(block_key, []).append(row)
+
         blocks: dict[str, list[dict[str, Any]]] = {}
         orphans: list[dict[str, Any]] = []
-        for row in rows:
+        for row in rows_to_process:
             block_key = row.get("match_block")
             if not block_key:
                 orphans.append(row)
@@ -373,47 +491,42 @@ def run_match_properties() -> dict[str, Any]:
             clusters = cluster_block(block_rows)
             if len(block_rows) > 10:
                 mega_clusters += 1
-            for cluster in clusters:
-                cluster_sizes.append(len(cluster))
-                payload = property_payload_from_cluster(cluster, block_key)
-                created = _create_properties(http, [payload])[0]
-                property_id = created["id"]
-                properties_created += 1
-                updates = [(str(row["id"]), property_id, block_key) for row in cluster if row.get("id")]
-                for chunk in chunks(updates, FLUSH_SIZE):
-                    for listing_id, linked_property_id, linked_block in chunk:
-                        response = http.patch(
-                            f"/listings?id=eq.{listing_id}",
-                            json={"property_id": linked_property_id, "match_block": linked_block},
-                            headers={"prefer": "return=minimal"},
-                        )
-                        if response.status_code >= 300:
-                            raise RuntimeError(
-                                f"Listing property link failed: {response.status_code} {response.text}"
-                            )
-                        listings_linked += 1
+            created, linked, sizes = _process_block_clusters(
+                http,
+                block_key,
+                clusters,
+                linked_by_block.get(block_key, []),
+            )
+            properties_created += created
+            listings_linked += linked
+            cluster_sizes.extend(sizes)
 
+        orphan_updates: list[tuple[str, str, str | None]] = []
+        orphan_payloads: list[dict[str, Any]] = []
         for row in orphans:
             if not row.get("id"):
                 continue
             payload = property_payload_from_cluster([row], "orphan")
             payload["match_block"] = None
-            created = _create_properties(http, [payload])[0]
-            properties_created += 1
-            response = http.patch(
-                f"/listings?id=eq.{row['id']}",
-                json={"property_id": created["id"]},
-                headers={"prefer": "return=minimal"},
-            )
-            if response.status_code >= 300:
-                raise RuntimeError(f"Orphan listing link failed: {response.status_code} {response.text}")
-            listings_linked += 1
+            orphan_payloads.append(payload)
+
+        if orphan_payloads:
+            created_orphans = _create_properties(http, orphan_payloads)
+            for row, created in zip(orphans, created_orphans):
+                if not row.get("id"):
+                    continue
+                orphan_updates.append((str(row["id"]), created["id"], None))
+                properties_created += 1
+                listings_linked += 1
+            _patch_listings(http, orphan_updates)
 
         avg_cluster = sum(cluster_sizes) / len(cluster_sizes) if cluster_sizes else 0.0
         multi_listing_clusters = sum(1 for size in cluster_sizes if size > 1)
 
         return {
-            "listings_processed": len(rows),
+            "listings_processed": len(rows_to_process),
+            "linked_before": linked_before,
+            "resumed": resume,
             "blocks_processed": len(blocks),
             "properties_created": properties_created,
             "listings_linked": listings_linked,

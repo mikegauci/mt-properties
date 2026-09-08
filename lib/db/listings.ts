@@ -97,11 +97,6 @@ function applyDbFilters(query: any, input: ListingsFilterInput) {
   if (input.propertyType && input.propertyType !== "all") {
     next = next.or(propertyTypeOrFilter(input.propertyType));
   }
-  if (input.excludeTypes?.length) {
-    for (const excluded of input.excludeTypes) {
-      next = next.not("or", `(${propertyTypeOrFilter(excluded)})`);
-    }
-  }
   if (input.area) {
     const pattern = `%${escapeFilterValue(input.area)}%`;
     next = next.or(`area.ilike.${pattern},title.ilike.${pattern},street.ilike.${pattern}`);

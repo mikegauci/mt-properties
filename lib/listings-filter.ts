@@ -168,7 +168,11 @@ export function sortListings<T extends ListingFilterRow>(
 }
 
 export function needsClientSideProcessing(input: ListingsFilterInput): boolean {
-  return Boolean(input.q?.trim()) || input.sortKey === "locality";
+  return (
+    Boolean(input.q?.trim()) ||
+    input.sortKey === "locality" ||
+    Boolean(input.excludeTypes?.length)
+  );
 }
 
 export function parseSortParam(value: string | null | undefined): { sortKey: SortKey; sortDir: SortDir } {
