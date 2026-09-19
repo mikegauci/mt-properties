@@ -7,7 +7,7 @@ import time
 import traceback
 
 from . import nso
-from .agencies import facebook, propertymarket, remax, zanzi
+from .agencies import alliance, facebook, propertymarket, remax, zanzi
 from . import log
 from .agencies.http import INCREMENTAL_PAGES, reset_max_pages, scrape_full, use_max_pages
 from .property_match import run_match_properties
@@ -18,6 +18,7 @@ AGENCIES = {
     "remax": remax,
     "propertymarket": propertymarket,
     "zanzi": zanzi,
+    "alliance": alliance,
     "facebook": facebook,
 }
 
@@ -95,7 +96,12 @@ def run_agency(source: str, *, full: bool = False) -> bool:
     module = AGENCIES[source]
     cap_token = None
     incremental = False
-    if not full and not scrape_full() and source_ready_for_incremental(source):
+    if (
+        source != "alliance"
+        and not full
+        and not scrape_full()
+        and source_ready_for_incremental(source)
+    ):
         cap_token = use_max_pages(INCREMENTAL_PAGES)
         incremental = True
     try:

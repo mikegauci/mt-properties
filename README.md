@@ -6,7 +6,7 @@ Personal Malta property intelligence: official sold-price indexes plus asking pr
 
 - **House price index** — NSO series published via Eurostat (`prc_hpi_q`, 2015 = 100). National only. This is the sold-price change.
 - **NSO transactions** — deed counts. Declared sale totals exist nationally; **NSO does not publish declared values by locality**.
-- **Asking prices** — RE/MAX Malta, PropertyMarket.com.mt, Zanzi Homes, and Facebook Marketplace property-for-sale listings (last 30 days via Apify). Locality €/m² and valuations come from agency feeds; Facebook adds informal owner/agent posts. History starts on the first successful scrape.
+- **Asking prices** — RE/MAX Malta, PropertyMarket.com.mt, Zanzi Homes, Alliance Real Estate (latest ~1,200 residential for-sale listings), and Facebook Marketplace property-for-sale listings (last 30 days via Apify). Locality €/m² and valuations come from agency feeds; Facebook adds informal owner/agent posts. History starts on the first successful scrape.
 
 Facebook Marketplace runs through [Apify](https://apify.com/) and needs `APIFY_API_TOKEN`. Expect lower field completeness (beds, sqm, locality) than agency feeds.
 
@@ -65,6 +65,7 @@ Single source:
 ```bash
 npm run scrape:propertymarket
 npm run scrape:zanzi
+npm run scrape:alliance
 npm run scrape:facebook
 PYTHONPATH=scraper python3 -m mtprop agencies --source remax
 ```
@@ -155,13 +156,13 @@ In `.env`:
 - `APIFY_FB_MAX_PAGES` — cap Apify search pages (profile defaults: 50 weekly, 5 daily)
 - `APIFY_FB_DAYS_LISTED` — Facebook date filter in days (profile defaults: 30 weekly, 7 daily)
 
-Daily GitHub runs scrape Remax, Property Market, and Zanzi in parallel (first 5 pages once a source already has a full scrape). Sundays run a full pass so dropped listings can be inactivated. Facebook is not run in CI — use `npm run scrape:facebook` or `npm run scrape:facebook:weekly` locally when needed.
+Daily GitHub runs scrape Remax, Property Market, Zanzi, and Alliance in parallel (first 5 pages once a source already has a full scrape; Alliance always scrapes the latest 200 pages). Sundays run a full pass so dropped listings can be inactivated. Facebook is not run in CI — use `npm run scrape:facebook` or `npm run scrape:facebook:weekly` locally when needed.
 
 ## Daily updates
 
 GitHub Actions:
 
-- `.github/workflows/daily-scrape.yml` — 03:00 UTC (Remax, Property Market, Zanzi in parallel; 5 newest pages weekdays, full scan Sundays)
+- `.github/workflows/daily-scrape.yml` — 03:00 UTC (Remax, Property Market, Zanzi, Alliance in parallel; 5 newest pages weekdays, full scan Sundays; Alliance latest 200 pages daily)
 - `.github/workflows/weekly-nso.yml` — Mondays 06:00 UTC
 
 Repository secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `APIFY_API_TOKEN`.

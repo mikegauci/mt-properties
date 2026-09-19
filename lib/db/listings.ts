@@ -19,7 +19,7 @@ export const LISTING_COLUMNS =
 
 const DEDUPED_LISTINGS = "listings_deduped";
 
-const LISTING_SOURCES = ["remax", "propertymarket", "zanzi", "facebook"] as const;
+const LISTING_SOURCES = ["remax", "propertymarket", "zanzi", "alliance", "facebook"] as const;
 const LISTING_STATS_COLUMNS = "price, sqm, source";
 const ASKING_COMPARE_COLUMNS = "locality_id, property_type, price, area";
 const FACET_COLUMNS = "locality_id, property_type, source";

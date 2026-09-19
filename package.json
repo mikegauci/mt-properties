@@ -11,6 +11,7 @@
     "scrape": "PYTHONPATH=scraper python3 -m mtprop agencies",
     "scrape:propertymarket": "PYTHONPATH=scraper python3 -m mtprop agencies --source propertymarket",
     "scrape:zanzi": "PYTHONPATH=scraper python3 -m mtprop agencies --source zanzi",
+    "scrape:alliance": "PYTHONPATH=scraper python3 -m mtprop agencies --source alliance",
     "scrape:facebook": "PYTHONPATH=scraper python3 -m mtprop agencies --source facebook",
     "scrape:facebook:weekly": "APIFY_FB_PROFILE=weekly PYTHONPATH=scraper python3 -m mtprop agencies --source facebook",
     "scrape:facebook:daily": "APIFY_FB_PROFILE=daily-north PYTHONPATH=scraper python3 -m mtprop agencies --source facebook",

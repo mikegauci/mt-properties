@@ -23,6 +23,13 @@ export const SOURCE_THEME: Record<
     badge: "bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100",
     badgeActive: "bg-emerald-700 text-white ring-1 ring-inset ring-emerald-700 hover:bg-emerald-800",
   },
+  alliance: {
+    label: "Alliance",
+    card: "bg-amber-50/90 ring-amber-200/70",
+    value: "text-amber-900",
+    badge: "bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200 hover:bg-amber-100",
+    badgeActive: "bg-amber-700 text-white ring-1 ring-inset ring-amber-700 hover:bg-amber-800",
+  },
   facebook: {
     label: "Facebook Marketplace",
     card: "bg-indigo-50/90 ring-indigo-200/70",
