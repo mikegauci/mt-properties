@@ -49,10 +49,7 @@ NORTH_LOCALITY_SLUGS = {"mellieha", "st-pauls-bay"}
 DAILY_HUB_PAIRS: tuple[tuple[str, str, frozenset[str]], ...] = (
     ("mellieha", "stpaulsbay", frozenset({"mellieha", "st-pauls-bay"})),
     ("sliema", "stjulians", frozenset({"sliema", "st-julians"})),
-    ("birkirkara", "mosta", frozenset({"birkirkara", "mosta"})),
-    ("valletta", "zabbar", frozenset({"valletta", "zabbar"})),
-    ("marsaskala", "zejtun", frozenset({"marsaskala", "zejtun"})),
-    ("rabat", "sangwann", frozenset({"rabat", "san-gwann"})),
+    ("naxxar", "mosta", frozenset({"naxxar", "mosta"})),
 )
 
 
