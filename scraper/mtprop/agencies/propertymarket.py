@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 from typing import Iterator
 from urllib.parse import urljoin
 
@@ -10,7 +11,15 @@ from ..features import amenities_from_text
 from ..images import from_card
 from ..localities import locality_rows
 from .html_pages import yield_paginated_pages
-from .http import get, http_client, page_limit, sleep
+from .http import (
+    empty_page_retries,
+    empty_page_retry_delay,
+    get,
+    http_client,
+    page_limit,
+    require_listings,
+    sleep,
+)
 from .. import log
 
 SOURCE = "propertymarket"
@@ -21,12 +30,20 @@ SEARCH = (
 
 
 def fetch() -> Iterator[dict]:
-    with http_client() as http:
-        first = get(http, SEARCH.format(page=1))
-        first.raise_for_status()
-        soup = BeautifulSoup(first.text, "lxml")
-        capped = page_limit(_last_page(soup))
-        first_items = list(_cards(soup))
+    first_items: list[dict] = []
+    capped = 1
+    for attempt in range(empty_page_retries()):
+        with http_client() as http:
+            first = get(http, SEARCH.format(page=1))
+            first.raise_for_status()
+            soup = BeautifulSoup(first.text, "lxml")
+            capped = page_limit(_last_page(soup))
+            first_items = list(_cards(soup))
+        if first_items:
+            break
+        if attempt + 1 < empty_page_retries():
+            time.sleep(empty_page_retry_delay(attempt))
+    require_listings(SOURCE, 1, len(first_items))
     yield from yield_paginated_pages(SOURCE, capped, 1, first_items, _fetch_page)
 
 

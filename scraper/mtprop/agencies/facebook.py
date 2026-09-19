@@ -4,6 +4,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Iterable, Iterator
 
 from .. import log
@@ -45,6 +46,15 @@ VALID_PROPERTY_TYPES = {
 }
 NORTH_LOCALITY_SLUGS = {"mellieha", "st-pauls-bay"}
 
+DAILY_HUB_PAIRS: tuple[tuple[str, str, frozenset[str]], ...] = (
+    ("mellieha", "stpaulsbay", frozenset({"mellieha", "st-pauls-bay"})),
+    ("sliema", "stjulians", frozenset({"sliema", "st-julians"})),
+    ("birkirkara", "mosta", frozenset({"birkirkara", "mosta"})),
+    ("valletta", "zabbar", frozenset({"valletta", "zabbar"})),
+    ("marsaskala", "zejtun", frozenset({"marsaskala", "zejtun"})),
+    ("rabat", "sangwann", frozenset({"rabat", "san-gwann"})),
+)
+
 
 @dataclass(frozen=True)
 class FacebookProfile:
@@ -85,11 +95,29 @@ PROFILES: dict[str, FacebookProfile] = {
 }
 
 
+def _daily_rotating_profile() -> FacebookProfile:
+    weekday = datetime.now(timezone.utc).weekday()
+    left, right, slugs = DAILY_HUB_PAIRS[weekday % len(DAILY_HUB_PAIRS)]
+    return FacebookProfile(
+        name=f"daily-{left}-{right}",
+        urls=(
+            _property_url(left, "7"),
+            _property_url(right, "7"),
+        ),
+        max_pages=5,
+        days_listed="7",
+        partial=True,
+        locality_slugs=slugs,
+    )
+
+
 def resolve_profile() -> FacebookProfile:
     name = os.environ.get("APIFY_FB_PROFILE", "weekly").strip().lower()
+    if name == "daily-rotate":
+        return _daily_rotating_profile()
     if name in PROFILES:
         return PROFILES[name]
-    raise RuntimeError(f"Unknown APIFY_FB_PROFILE {name!r}; expected one of {sorted(PROFILES)}")
+    raise RuntimeError(f"Unknown APIFY_FB_PROFILE {name!r}; expected one of {sorted([*PROFILES, 'daily-rotate'])}")
 
 
 def run_options() -> tuple[FacebookProfile, bool]:

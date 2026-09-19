@@ -100,3 +100,20 @@ def get(client: httpx.Client, url: str, **kwargs) -> httpx.Response:
 def page_limit(total_pages: int) -> int:
     cap = max_pages()
     return min(total_pages, cap) if cap else total_pages
+
+
+def empty_page_retries() -> int:
+    raw = os.environ.get("SCRAPE_EMPTY_PAGE_RETRIES", "3")
+    return max(1, int(raw))
+
+
+def empty_page_retry_delay(attempt: int) -> float:
+    return min(2.0**attempt, 8.0)
+
+
+def require_listings(source: str, page: int, count: int) -> None:
+    if count > 0:
+        return
+    raise RuntimeError(
+        f"{source} page {page} returned 0 listings (blocked or empty feed)"
+    )

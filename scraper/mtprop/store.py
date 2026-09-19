@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
@@ -69,6 +70,25 @@ OPTIONAL_KEYS = ("ext_sqm", "finish", "has_garage", "has_pool", "has_lift")
 
 
 MIN_ACTIVE_FOR_INCREMENTAL = 200
+DEFAULT_INACTIVATION_FLOOR = 0.5
+
+
+def inactivation_floor_ratio() -> float:
+    raw = os.environ.get("SCRAPE_INACTIVATION_FLOOR", str(DEFAULT_INACTIVATION_FLOOR))
+    return float(raw)
+
+
+def active_listing_count(http, source: str) -> int:
+    response = http.get(
+        "/listings",
+        params={"source": f"eq.{source}", "is_active": "eq.true", "select": "id"},
+        headers={"range": "0-0", "prefer": "count=exact"},
+    )
+    if response.status_code >= 300:
+        raise RuntimeError(
+            f"Active listing count failed: {response.status_code} {response.text}"
+        )
+    return _exact_count(response)
 
 
 def source_ready_for_incremental(source: str) -> bool:
@@ -391,8 +411,18 @@ class ListingSink:
 
     def finalize(self, *, inactivate_missing: bool = True) -> int:
         with client() as http:
-            if inactivate_missing and self.seen_ids and not max_pages():
-                self.inactivated += _inactivate_missing(http, self.source, set(self.seen_ids))
+            if not inactivate_missing or max_pages() or not self.seen_ids:
+                return self.inactivated
+            active_count = active_listing_count(http, self.source)
+            seen_count = len(set(self.seen_ids))
+            floor = inactivation_floor_ratio()
+            required = int(active_count * floor) if active_count > 0 else 0
+            if active_count > 0 and seen_count < required:
+                raise RuntimeError(
+                    f"saw {seen_count}/{active_count} active listings; "
+                    f"refusing inactivation (need >= {floor:.0%})"
+                )
+            self.inactivated += _inactivate_missing(http, self.source, set(self.seen_ids))
         return self.inactivated
 
 

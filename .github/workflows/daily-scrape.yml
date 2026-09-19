@@ -52,7 +52,7 @@ jobs:
           if [ "$(date -u +%u)" = "7" ]; then
             export APIFY_FB_PROFILE=weekly
           else
-            export APIFY_FB_PROFILE=daily-north
+            export APIFY_FB_PROFILE=daily-rotate
           fi
           python -m mtprop agencies --source facebook
 

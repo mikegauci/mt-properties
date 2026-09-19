@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 from typing import Iterator
 from urllib.parse import urljoin
 
@@ -10,7 +11,14 @@ from bs4 import BeautifulSoup
 from ..features import amenities_from_text
 from ..images import from_card
 from ..localities import fold
-from .http import http_client, page_limit, sleep
+from .http import (
+    empty_page_retries,
+    empty_page_retry_delay,
+    http_client,
+    page_limit,
+    require_listings,
+    sleep,
+)
 from .. import log
 
 SOURCE = "zanzi"
@@ -30,19 +38,28 @@ SKIP_NAME = re.compile(
 
 
 def fetch() -> Iterator[dict]:
-    with http_client() as http:
-        first = http.get(SEARCH)
-        first.raise_for_status()
-        soup = BeautifulSoup(first.text, "lxml")
-        capped = page_limit(_last_page(http, soup))
-        first_items = list(_cards(soup))
-        log.page(SOURCE, 1, capped, len(first_items))
-        yield from first_items
-        for page in range(2, capped + 1):
-            sleep()
-            items = _fetch_page(http, page)
-            log.page(SOURCE, page, capped, len(items))
-            yield from items
+    first_items: list[dict] = []
+    capped = 1
+    for attempt in range(empty_page_retries()):
+        with http_client() as http:
+            first = http.get(SEARCH)
+            first.raise_for_status()
+            soup = BeautifulSoup(first.text, "lxml")
+            capped = page_limit(_last_page(http, soup))
+            first_items = list(_cards(soup))
+        if first_items:
+            with http_client() as http:
+                log.page(SOURCE, 1, capped, len(first_items))
+                yield from first_items
+                for page in range(2, capped + 1):
+                    sleep()
+                    items = _fetch_page(http, page)
+                    log.page(SOURCE, page, capped, len(items))
+                    yield from items
+            return
+        if attempt + 1 < empty_page_retries():
+            time.sleep(empty_page_retry_delay(attempt))
+    require_listings(SOURCE, 1, len(first_items))
 
 
 def _fetch_page(http: httpx.Client, page: int) -> list[dict]:

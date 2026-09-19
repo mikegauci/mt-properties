@@ -8,7 +8,7 @@ from typing import Any, Iterator
 from ..features import amenities_from_text
 from ..localities import normalize_type
 from .html_pages import yield_paginated_pages
-from .http import http_client, sleep
+from .http import http_client, require_listings, sleep
 
 SOURCE = "alliance"
 API = "https://alliance.mt/wp-admin/admin-ajax.php"
@@ -34,6 +34,7 @@ def fetch() -> Iterator[dict]:
         first = _fetch_page(http, 1)
         total_pages = min(PAGE_CAP, max(1, math.ceil(first["count"] / PER_PAGE)))
         first_items = list(_parse_items(first["data"]))
+    require_listings(SOURCE, 1, len(first_items))
     yield from yield_paginated_pages(SOURCE, total_pages, 1, first_items, _fetch_page_items)
 
 

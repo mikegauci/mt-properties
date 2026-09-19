@@ -3,7 +3,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Iterator
 
-from .http import http_client, page_limit, remax_detail_workers, scrape_page_workers, sleep
+from .http import http_client, page_limit, remax_detail_workers, require_listings, scrape_page_workers, sleep
 from .. import log
 from ..features import amenities_from_remax_detail, garage_from_remax
 from ..images import absolute
@@ -25,6 +25,7 @@ def fetch() -> Iterator[dict]:
         total_pages = max(1, (total + take - 1) // take)
         capped = page_limit(total_pages)
         listings = list(_parse_page(payload.get("Properties") or []))
+        require_listings(SOURCE, 1, len(listings))
         log.page(SOURCE, 1, capped, len(listings))
 
         remaining = list(range(2, capped + 1))
